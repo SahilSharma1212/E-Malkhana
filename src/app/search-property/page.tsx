@@ -19,17 +19,20 @@ export default function Page() {
 
         {/* Search Bar */}
         <form
-          className='bg-blue-500 h-12 rounded-sm px-4 py-1 flex items-center justify-start gap-5'
+          className='bg-blue-500 h-12 rounded-sm px-4 py-1 flex items-center justify-start gap-5 max-md:flex-wrap'
           onSubmit={handleSearch}
         >
+
+          <div className='flex gap-2'>
+
           {/* Search Category */}
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 '>
             <label htmlFor="searchCategory" className='text-white font-semibold'>Search By</label>
             <select
               name='searchCategory'
               value={searchCategory}
               onChange={(e) => setSearchCategory(e.target.value)}
-              className='bg-white h-8 w-44 rounded-sm px-2 outline-none'
+              className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none'
             >
               <option value="property">Property</option>
               <option value="fir">FIR</option>
@@ -44,32 +47,39 @@ export default function Page() {
               name='searchValue'
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              className='bg-white h-8 w-44 rounded-sm px-2 outline-none'
+              className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none'
               placeholder='Enter...'
             />
           </div>
 
+          </div>
+
+<div className='flex gap-2'>
+
+
           {/* Search Button */}
           <button
             type='submit'
-            className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-blue-100'
+            className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-blue-100 max-md:px-2'
           >
-            <p>Search</p>
+            <p className='max-lg:hidden'>Search</p>
             <Search className='text-blue-300' />
           </button>
 
           {/* Back Button (Optional logic) */}
           <button
             type='button'
-            className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-red-100'
+            className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-red-100 max-md:px-2'
             onClick={() => {
               setSearchValue("");
               console.log("🔙 Back pressed");
             }}
           >
-            <p>Back</p>
+            <p className='max-lg:hidden'>Back</p>
             <X className='text-red-300' />
           </button>
+</div>
+
         </form>
 
         {/* Table Section */}

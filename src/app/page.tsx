@@ -23,8 +23,8 @@ export default function page() {
             height={336} // 84 * 4 = 336px
             className="rounded-md object-contain"
           />
-          <p className='text-3xl font-bold text-white'>Chhattisgarh Police</p>
-          <p className=' text-white text-lg w-[70%] text-center text-wrap font-semibold'>E Malkhana Managment System</p>
+          <p className='text-3xl font-bold text-white text-center'>Chhattisgarh Police</p>
+          <p className=' text-white text-lg w-[70%] text-center text-wrap font-semibold max-xl:text-sm'>E Malkhana Managment System</p>
 
 
         </div>

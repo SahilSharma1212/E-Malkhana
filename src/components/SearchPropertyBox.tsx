@@ -18,7 +18,7 @@ export default function SearchPropertyBox() {
       <div className='w-full h-12 bg-blue-500 rounded-md flex items-center justify-between px-3 mb-4'>
 
         {/* Left buttons */}
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-2 max-lg:hidden'>
           <button className='bg-white text-blue-700 border border-blue-500 rounded-sm px-3 py-1 font-semibold'>Edit</button>
           <button className='bg-red-500 text-white rounded-sm px-3 py-1'>Close</button>
         </div>
@@ -28,10 +28,11 @@ export default function SearchPropertyBox() {
           className='flex items-center gap-2 bg-white pr-2 rounded-sm'
           onSubmit={searchPropertyFunction}
         >
-          <p className='text-blue-700 font-semibold px-2'>Search FIR or Property</p>
+          <p className='text-blue-700 font-semibold px-2 max-lg:hidden'>Search FIR or Property</p>
+          <p className='text-blue-700 font-semibold px-2 lg:hidden max-sm:hidden'>FIR / Property</p>
           <input
             type="text"
-            className='bg-white text-black px-3 py-1 rounded-sm outline-none'
+            className='bg-white text-black px-3 py-1 rounded-sm max-md:w-32 outline-none'
             placeholder='Enter search term...'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

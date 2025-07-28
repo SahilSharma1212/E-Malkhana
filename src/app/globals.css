@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 .text-input{
-    @apply w-100 h-10 text-black rounded-lg px-3 border border-gray-400;
+    @apply w-100 h-10 text-black rounded-lg px-3 border border-gray-400 max-md:w-64;
 }
 
 /* This hides scrollbars but keeps scrolling enabled */
