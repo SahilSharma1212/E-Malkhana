@@ -1,6 +1,6 @@
-import ImageSection from '@/_components/ImageSection'
-import PropertyForm from '@/_components/PropertyForm'
-import SearchPropertyBox from '@/_components/SearchPropertyBox'
+
+import PropertyForm from '@/components/PropertyForm'
+import SearchPropertyBox from '@/components/SearchPropertyBox'
 import Image from 'next/image'
 import React from 'react'
 
@@ -11,11 +11,11 @@ export default function page() {
 
 
       {/* This is the div for department logo and name and description */}
-      <div className='px-3 py-1 flex w-full justify-around shadow-md'>
+      <div className='min-h-135 px-3 py-1 flex w-full justify-around shadow-md'>
 
 
         {/* This is the div for the logo name and description of the department */}
-        <div className='min-h-130 w-[20%]  bg-blue-500 flex flex-col items-center  rounded-l-lg justify-evenly max-lg:hidden'>
+        <div className='min-h-135 w-[20%]  bg-blue-500 flex flex-col items-center  rounded-l-lg justify-evenly max-lg:hidden'>
           <Image
             src="/CG_POLICE_LOGO.png"
             alt="Chhattisgarh Police Logo"
@@ -29,14 +29,9 @@ export default function page() {
 
         </div>
 
-        {/* This is the div for the form data and all the input fields  and upload image feature */}
-        <div className='flex items-center justify-around bg-white w-[80%] max-lg:w-[100%]'>
-
-          {/* This is the div for the form data */}
+    
           <PropertyForm/>
 
-          <ImageSection />
-        </div>
       </div>
 
       {/* This is the div for implementing the search of any object */}
