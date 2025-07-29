@@ -207,6 +207,7 @@ export default function PropertyForm() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(uuid || "");
+                    toast.success("QR ID copied")
                   }}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 text-xs rounded-md font-semibold"
                 >
@@ -396,12 +397,12 @@ export default function PropertyForm() {
                     </div>
 
                     {/* Rack Number and Box Number */}
-                    <div className="flex items-end  gap-2 flex-wrap max-xl:flex-col max-xl:items-end max-md:items-end max-md:h-20 max-xl:h-20">
+                    <div className="flex items-end  gap-2 flex-wrap max-xl:flex-col max-xl:items-end max-md:items-end max-md:h-20 max-xl:h-18 max-md:flex-row ">
                       <input
                         name="rackNumber"
                         type="text"
                         placeholder="Rack No."
-                        className="w-100 xl:h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44 max-xl:h-20"
+                        className="w-100 h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44 max-md:w-60 max-sm:w-28"
                         value={formData.rackNumber}
                         onChange={handleChange}
                       />
@@ -409,7 +410,7 @@ export default function PropertyForm() {
                         name="boxNumber"
                         type="text"
                         placeholder="Box No."
-                        className="w-100 h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44"
+                        className="w-100 h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44 max-sm:w-28"
                         value={formData.boxNumber}
                         onChange={handleChange}
                       />
@@ -428,13 +429,13 @@ export default function PropertyForm() {
                         onChange={handleChange}
                       />
                     </div>
-                    <div className="flex items-center max-sm:items-start flex-between">
-                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-32 max-xl:w-32 max-lg:w-47 max-md:w-48 max-2xl:w-38 ">Police Station:</label>
+                    <div className="flex items-center max-sm:items-start justify-between ">
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700 max-sm:max-w-32 max-xl:w-38 max-lg:w-48  max-md:w-48 max-2xl:w-38 ">Police Station:</label>
                       <input
                         name="policeStation"
                         type="text"
                         placeholder="Name of Police Station"
-                        className="max-sm:text-xs w-58 h-10 text-black rounded-lg px-3 border border-gray-400 max-xl:w-44 max-2xl:w-50 flex-1  max-lg:w-52 max-md:w-64 max-sm:w-38"
+                        className="max-sm:text-xs w-58 h-10 text-black rounded-lg px-3 border border-gray-400 max-xl:w-44 max-2xl:w-50 flex-1 max-lg:w-48 max-md:w-64 max-sm:w-full"
                         value={formData.policeStation}
                         onChange={handleChange}
                       />
@@ -453,7 +454,7 @@ export default function PropertyForm() {
                 </div>
               </form>
             </div>
-
+              {/* Image Area */}
             <div className='flex items-center justify-evenly flex-col h-full bg-gray-400 w-[25%] rounded-r-lg p-4 max-lg:w-full'>
               <Image height={84} width={54} src={'/e-malkhana.png'} alt='E-Malkhana Image' />
 

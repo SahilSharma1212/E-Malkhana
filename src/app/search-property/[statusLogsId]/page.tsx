@@ -1,6 +1,6 @@
 "use client";
 import supabase from "@/supabaseConfig/supabaseConnect";
-import { Copy, Plus } from "lucide-react";
+import { Copy, Plus, X } from "lucide-react";
 import React, { useState, useEffect, FormEvent, use } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import QRCode from "react-qr-code";
@@ -238,14 +238,14 @@ export default function Page({ params }: PageProps) {
         </div>
 
 
-        <div className="p-4 bg-white rounded-md mt-3 flex items-center justify-center flex-col">
+        <div className="p-4 bg-white rounded-md mt-3 flex items-start justify-center flex-col">
           <button
-            className={`inline-flex items-center justify-center gap-2 bg-green-500 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "hidden" : ""}`}
+            className={`inline-flex items-center justify-center gap-2  text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "bg-red-500 hover:bg-red-700" : "bg-green-500 hover:bg-green-700"}`}
             onClick={() => setAddingLogs(!addingLogs)}
             type="button"
           >
-            <p>Add Logs</p>
-            <Plus />
+            {addingLogs?<p>Cancel</p>:<p>Add Logs</p>}
+            {addingLogs?<X/>:<Plus />}
           </button>
 
           {addingLogs && (
@@ -277,15 +277,13 @@ export default function Page({ params }: PageProps) {
                   className="border p-2 rounded-sm"
                 />
               </div>
-              <div className="flex gap-3 w-full justify-center">
+              <div className="flex gap-3 w-full justify-start">
                 <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded-sm hover:bg-blue-700">
                   Submit
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setAddingLogs(false)}
-                  className="py-2 px-4 rounded-sm border hover:bg-gray-100"
-                >
+
+                <button className="bg-red-500 text-white py-2 px-4 rounded-sm hover:bg-red-700"
+                onClick={()=>{setAddingLogs(false)}}>
                   Cancel
                 </button>
               </div>

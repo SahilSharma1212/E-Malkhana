@@ -75,7 +75,7 @@ export default function Page() {
     }
 
     const { data, error } = await supabase
-      .from("Property_table")
+      .from("property_table")
       .select("*")
       .ilike(column, `%${searchValue}%`);
 
