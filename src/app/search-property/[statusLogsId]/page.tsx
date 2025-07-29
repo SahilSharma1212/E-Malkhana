@@ -167,6 +167,7 @@ export default function Page({ params }: PageProps) {
                 </div>
               </div>
 
+              {/* Data */}
               <div className="flex justify-justify gap-5 text-sm w-[78%] max-md:w-[100%] h-full max-md:justify-center flex-wrap max-lg:w-[98%]">
                 {[
                   { label: "Property Number", value: propertyDetails.property_number },
@@ -203,36 +204,39 @@ export default function Page({ params }: PageProps) {
           {statusLogs.length === 0 ? (
             <p className="italic text-gray-600">No logs found.</p>
           ) : (
-            <table className="min-w-full border border-gray-300 text-sm">
-              <thead>
-                <tr className="bg-gray-100 text-left font-semibold text-gray-700">
-                  <th className="border px-4 py-2">Remarks</th>
-                  <th className="border px-4 py-2">Officer</th>
-                  <th className="border px-4 py-2">Updated By</th>
-                  <th className="border px-4 py-2">Event Date</th>
-                  <th className="border px-4 py-2">Created At</th>
-                  <th className="border px-4 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statusLogs.map((log, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="border px-4 py-2">{log.status_remarks}</td>
-                    <td className="border px-4 py-2">{log.handling_officer}</td>
-                    <td className="border px-4 py-2">{log.updated_by}</td>
-                    <td className="border px-4 py-2">
-                      {new Date(log.time_of_event).toLocaleDateString()}
-                    </td>
-                    <td className="border px-4 py-2">
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td className="border px-4 py-2">{log.status}</td>
+            <div className="w-full overflow-x-auto max-w-full">
+              <table className="min-w-full border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-100 text-left font-semibold text-gray-700">
+                    <th className="border px-4 py-2">Remarks</th>
+                    <th className="border px-4 py-2">Officer</th>
+                    <th className="border px-4 py-2">Updated By</th>
+                    <th className="border px-4 py-2">Event Date</th>
+                    <th className="border px-4 py-2">Created At</th>
+                    <th className="border px-4 py-2">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {statusLogs.map((log, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="border px-4 py-2">{log.status_remarks}</td>
+                      <td className="border px-4 py-2">{log.handling_officer}</td>
+                      <td className="border px-4 py-2">{log.updated_by}</td>
+                      <td className="border px-4 py-2">
+                        {new Date(log.time_of_event).toLocaleDateString()}
+                      </td>
+                      <td className="border px-4 py-2">
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+                      <td className="border px-4 py-2">{log.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+
 
         <div className="p-4 bg-white rounded-md mt-3 flex items-center justify-center flex-col">
           <button
