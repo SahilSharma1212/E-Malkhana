@@ -74,43 +74,73 @@ export default function PropertyForm() {
 
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const newUuid = uuidv4();
-    setUuid(newUuid);
+  e.preventDefault();
 
-    const { data, error } = await supabase
-      .from("Property_table")
-      .insert([
-        {
-          property_number: formData.propertyNumber,
-          name_of_court: formData.courtName,
-          fir_number: formData.firNumber,
-          category_of_offence: formData.offenceCategory,
-          under_section: formData.section,
-          date_of_seizure: formData.seizureDate,
-          description: formData.description1,
-          name_of_io: formData.ioName,
-          case_status: formData.caseStatus,
-          updation_date: formData.updationDate,
-          property_tag: formData.propertyTag,
-          location_of_property: formData.propertyLocation,
-          rack_number: formData.rackNumber,
-          box_number: formData.boxNumber,
-          remarks: formData.remarks,
-          qr_id: newUuid,
-          police_station: formData.policeStation,
-          image_url: uploadedImageUrl || null, // Store the uploaded image URL
-        },
-      ]);
+  // Check if any required field is empty
+  const requiredFields = [
+    formData.propertyNumber,
+    formData.courtName,
+    formData.firNumber,
+    formData.offenceCategory,
+    formData.section,
+    formData.seizureDate,
+    formData.description1,
+    formData.ioName,
+    formData.caseStatus,
+    formData.updationDate,
+    formData.propertyTag,
+    formData.propertyLocation,
+    formData.rackNumber,
+    formData.boxNumber,
+    formData.remarks,
+    formData.policeStation,
+  ];
 
-    if (error) {
-      console.error("Insert error:", error);
-      return;
-    }
-    setIsSubmitted(true);
-    const propertyAddedSuccessfully = () => toast.success('Property added successfully!');
-    propertyAddedSuccessfully();
-  };
+  const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
+
+  if (isEmpty) {
+    toast.error("Please fill all the fields before submitting.");
+    return;
+  }
+
+  const newUuid = uuidv4();
+  setUuid(newUuid);
+
+  const { data, error } = await supabase
+    .from("property_table")
+    .insert([
+      {
+        property_number: formData.propertyNumber,
+        name_of_court: formData.courtName,
+        fir_number: formData.firNumber,
+        category_of_offence: formData.offenceCategory,
+        under_section: formData.section,
+        date_of_seizure: formData.seizureDate,
+        description: formData.description1,
+        name_of_io: formData.ioName,
+        case_status: formData.caseStatus,
+        updation_date: formData.updationDate,
+        property_tag: formData.propertyTag,
+        location_of_property: formData.propertyLocation,
+        rack_number: formData.rackNumber,
+        box_number: formData.boxNumber,
+        remarks: formData.remarks,
+        qr_id: newUuid,
+        police_station: formData.policeStation,
+        image_url: uploadedImageUrl || null,
+      },
+    ]);
+
+  if (error) {
+    console.error("Insert error:", error);
+    toast.error("Error adding property.");
+    return;
+  }
+
+  setIsSubmitted(true);
+  toast.success("Property added successfully!");
+};
+
 
 
   const handleReset = () => {
@@ -191,7 +221,7 @@ export default function PropertyForm() {
               >
                 {/* Property Number */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">Property Number:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Property Number:</label>
                   <input
                     name="propertyNumber"
                     type="text"
@@ -204,7 +234,7 @@ export default function PropertyForm() {
 
                 {/* Name of Court */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">Name of Court:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Name of Court:</label>
                   <input
                     name="courtName"
                     type="text"
@@ -217,7 +247,7 @@ export default function PropertyForm() {
 
                 {/* FIR Number */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">FIR Number:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">FIR Number:</label>
                   <input
                     name="firNumber"
                     type="text"
@@ -230,7 +260,7 @@ export default function PropertyForm() {
 
                 {/* Category of Offence */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">Category of Offence:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Category of Offence:</label>
                   <input
                     name="offenceCategory"
                     type="text"
@@ -243,7 +273,7 @@ export default function PropertyForm() {
 
                 {/* Under Section */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">Under Section:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Under Section:</label>
                   <input
                     name="section"
                     type="text"
@@ -256,7 +286,7 @@ export default function PropertyForm() {
 
                 {/* Date of Seizure */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="w-48 font-semibold text-gray-700">Date of Seizure:</label>
+                  <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Date of Seizure:</label>
                   <input
                     name="seizureDate"
                     type="date"
@@ -270,7 +300,7 @@ export default function PropertyForm() {
                 <div className="flex w-full gap-4 max-md:flex-col items-center">
                   <div className="flex items-start w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
                     <div className="flex items-start w-full">
-                      <label className="w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Description:</label>
+                      <label className=" max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Description:</label>
                       <textarea
                         name="description1"
                         placeholder="Description of Property"
@@ -283,7 +313,7 @@ export default function PropertyForm() {
 
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Name of IO:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Name of IO:</label>
                       <input
                         name="ioName"
                         type="text"
@@ -294,7 +324,7 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Case Status:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Case Status:</label>
                       <input
                         name="caseStatus"
                         type="text"
@@ -305,7 +335,7 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Updation Date:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Updation Date:</label>
                       <input
                         name="updationDate"
                         type="date"
@@ -322,7 +352,7 @@ export default function PropertyForm() {
                 <div className="flex w-full gap-4 max-md:flex-col items-center">
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Property Tag:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Property Tag:</label>
                       <input
                         name="propertyTag"
                         type="text"
@@ -333,7 +363,7 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Location of Property:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700">Location of Property:</label>
                       <input
                         name="propertyLocation"
                         type="text"
@@ -353,7 +383,6 @@ export default function PropertyForm() {
                         className="w-100 xl:h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44 max-xl:h-20"
                         value={formData.rackNumber}
                         onChange={handleChange}
-
                       />
                       <input
                         name="boxNumber"
@@ -369,7 +398,7 @@ export default function PropertyForm() {
                   {/* Right-side textarea + buttons */}
                   <div className="flex items-start justify-between gap-2 w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
                     <div className="flex items-start w-full">
-                      <label className="w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Remarks:</label>
+                      <label className=" max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Remarks:</label>
                       <textarea
                         name="remarks"
                         placeholder="Remarks about Property"
@@ -379,12 +408,12 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center max-sm:items-start flex-between">
-                      <label className="w-48 font-semibold text-gray-700 max-sm:w-32 max-xl:w-32 max-lg:w-47 max-md:w-48 max-2xl:w-38 max-sm:text-sm">Police Station:</label>
+                      <label className=" max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-32 max-xl:w-32 max-lg:w-47 max-md:w-48 max-2xl:w-38 ">Police Station:</label>
                       <input
                         name="policeStation"
                         type="text"
                         placeholder="Name of Police Station"
-                        className="w-58 h-10 text-black rounded-lg px-3 border border-gray-400 max-xl:w-44 max-2xl:w-50 flex-1  max-lg:w-52 max-md:w-64 max-sm:w-38"
+                        className="max-sm:text-xs w-58 h-10 text-black rounded-lg px-3 border border-gray-400 max-xl:w-44 max-2xl:w-50 flex-1  max-lg:w-52 max-md:w-64 max-sm:w-38"
                         value={formData.policeStation}
                         onChange={handleChange}
                       />

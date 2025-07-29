@@ -1,8 +1,8 @@
 "use client";
 import { Eye, Plus, Search, X } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import supabase from '@/supabaseConfig/supabaseConnect'; // adjust if your path is different
-
+import supabase from '@/supabaseConfig/supabaseConnect';
+import { useRouter } from 'next/navigation';
 
 interface DataInterface {
   box_number: string;
@@ -29,12 +29,12 @@ interface DataInterface {
 }
 
 export default function Page() {
+  const router = useRouter();
   const [searchCategory, setSearchCategory] = useState("property");
   const [searchValue, setSearchValue] = useState("");
   const [propertyData, setPropertyData] = useState<DataInterface[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch all properties on initial load
   useEffect(() => {
     fetchAllProperties();
   }, []);
@@ -42,14 +42,13 @@ export default function Page() {
   const fetchAllProperties = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("Property_table")
+      .from("property_table")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("❌ Error fetching all data:", error.message);
     } else {
-      console.log("✅ All properties fetched successfully:", data);
       setPropertyData(data);
     }
     setLoading(false);
@@ -58,11 +57,22 @@ export default function Page() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim() === "") return alert("Please enter a value to search.");
-
     setLoading(true);
 
-    let column = "propertyNumber";
-    if (searchCategory === "fir") column = "firNumber";
+    let column = "property_number"; // default
+    switch (searchCategory) {
+      case "property": column = "property_number"; break;
+      case "fir": column = "fir_number"; break;
+      case "section": column = "under_section"; break;
+      case "court": column = "name_of_court"; break;
+      case "io": column = "name_of_io"; break;
+      case "submitted": column = "created_at"; break;
+      case "police": column = "police_station"; break;
+      case "rack": column = "rack_number"; break;
+      case "box": column = "box_number"; break;
+      case "updation": column = "updation_date"; break;
+      case "status": column = "case_status"; break;
+    }
 
     const { data, error } = await supabase
       .from("Property_table")
@@ -89,67 +99,61 @@ export default function Page() {
 
         {/* Search Bar */}
         <form
-          className='bg-blue-500 h-12 rounded-sm px-4 py-1 flex items-center justify-start gap-5 max-md:flex-wrap'
+          className='bg-blue-500 py-2 rounded-sm px-4 flex items-center justify-start gap-5 max-md:flex-wrap'
           onSubmit={handleSearch}
         >
-          <div className='flex gap-2'>
-            {/* Search Category */}
-            <div className='flex items-center gap-2'>
-              <label htmlFor="searchCategory" className='text-white font-semibold'>Search By</label>
+          <div className='flex gap-2 flex-wrap items-center justify-between'>
+            <div className='flex items-center gap-2 max-sm:w-full'>
+              <label htmlFor="searchCategory" className='text-white font-semibold max-sm:text-sm'>Search By</label>
               <select
                 name='searchCategory'
                 value={searchCategory}
                 onChange={(e) => setSearchCategory(e.target.value)}
-                className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none'
+                className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none max-md:w-full'
               >
                 <option value="property">Property Number</option>
                 <option value="fir">FIR Number</option>
-                <option value={"section"}>Under Section</option>
-                <option value={"court"}>Name of Court</option>
-                <option value={"io"}>Name of IO</option>
-                <option value={"submitted"}>Submitted On</option>
-                <option value={"police"}>Police Station</option>
-                <option value={"rack"}>Rack Number</option>
-                <option value={"box"}>Box Number</option>
-                <option value={"updation"}>Updation Date</option>
-                <option value={"status"}>Status of Property</option>
-
+                <option value="section">Under Section</option>
+                <option value="court">Name of Court</option>
+                <option value="io">Name of IO</option>
+                <option value="submitted">Submitted On</option>
+                <option value="police">Police Station</option>
+                <option value="rack">Rack Number</option>
+                <option value="box">Box Number</option>
+                <option value="updation">Updation Date</option>
+                <option value="status">Status of Property</option>
               </select>
             </div>
 
-            {/* Search Input */}
-            <div className='flex items-center gap-2'>
-              <label htmlFor="searchValue" className='text-white font-semibold'>Search Value</label>
+            <div className='flex items-center gap-2 max-sm:w-full'>
+              <label htmlFor="searchValue" className='text-white font-semibold max-sm:text-sm'>Search Value</label>
               <input
                 type="text"
                 name='searchValue'
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none'
+                className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none max-md:w-full'
                 placeholder='Enter...'
               />
             </div>
           </div>
 
           <div className='flex gap-2'>
-            {/* Search Button */}
             <button
               type='submit'
               className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-blue-100 max-md:px-2'
               disabled={loading}
             >
-              <p className='max-lg:hidden'>Search</p>
+              <p className='lg:visible max-lg:hidden max-md:visible'>Search</p>
               <Search className='text-blue-300' />
             </button>
-
-            {/* Back Button */}
             <button
               type='button'
               className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-red-100 max-md:px-2'
               onClick={handleReset}
               disabled={loading}
             >
-              <p className='max-lg:hidden'>Back</p>
+              <p className='max-lg:hidden max-md:visible'>Back</p>
               <X className='text-red-300' />
             </button>
           </div>
@@ -180,35 +184,38 @@ export default function Page() {
             <tbody>
               {propertyData.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className='text-center py-4 text-gray-500'>
+                  <td colSpan={15} className='text-center py-4 text-gray-500'>
                     {loading ? "Loading..." : "No records found"}
                   </td>
                 </tr>
               ) : (
                 propertyData.map((item, index) => (
                   <tr key={item.id || index} className='hover:bg-gray-50'>
-                    <td className='px-3 py-2 border'>{index + 1}</td>
-                    <td className='px-3 py-2 border'>{item.property_number}</td>
-                    <td className='px-3 py-2 border'>{item.fir_number}</td>
-                    <td className='px-3 py-2 border'>{item.under_section}</td>
-                    <td className='px-3 py-2 border'>{item.property_tag}</td>
-                    <td className='px-3 py-2 border'>{item.date_of_seizure ? new Date(item.date_of_seizure).toLocaleDateString():"N/A"}</td>
-                    <td className='px-3 py-2 border'>{item.name_of_court}</td>
-                    <td className='px-3 py-2 border'>{item.name_of_io}</td>
-                    <td className='px-3 py-2 border'>{item.created_at ? new Date(item.created_at).toLocaleDateString().split("T")[0] : "N/A"}</td>
-                    <td className='px-3 py-2 border'>{item.police_station}</td>
-                    <td className='px-3 py-2 border'>{item.rack_number}</td>
-                    <td className='px-3 py-2 border'>{item.box_number}</td>
-                    <td className='px-3 py-2 border'>{item.updation_date ? new Date(item.updation_date).toLocaleDateString() : "N/A"}</td>
-                    <td className='px-3 py-2 border'>{item.case_status}</td>
-                    <td className='px-3 py-2 flex gap-2 justify-center'>
-
-                      <button className='bg-green-500 text-white px-2 py-1 rounded-sm hover:bg-green-600 flex items-center gap-1'>
-                        Add
-                        <Plus className='text-white' />
+                    <td className='px-3 py-2 border' title={item.description}>{index + 1}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.property_number}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.fir_number}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.under_section}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.property_tag}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.date_of_seizure ? new Date(item.date_of_seizure).toLocaleDateString() : "N/A"}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.name_of_court}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.name_of_io}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A"}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.police_station}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.rack_number}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.box_number}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.updation_date ? new Date(item.updation_date).toLocaleDateString() : "N/A"}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.case_status}</td>
+                    <td className='px-3 py-2 flex gap-2 justify-center' title={item.description}>
+                      <button
+                        className='bg-green-500 text-white px-2 py-1 rounded-sm hover:bg-green-600 flex items-center gap-1'
+                        onClick={() => router.push(`/add-status-logs?propertyId=${item.id}`)}
+                      >
+                        Add <Plus className='text-white' />
                       </button>
-
-                      <button className='bg-blue-500 text-white px-2 py-1 rounded-sm hover:bg-blue-600 flex items-center gap-1'>
+                      <button
+                        className='bg-blue-500 text-white px-2 py-1 rounded-sm hover:bg-blue-600 flex items-center gap-1'
+                        onClick={() => router.push(`/view-status-logs?propertyId=${item.id}`)}
+                      >
                         <Eye className='text-white' />
                       </button>
                     </td>
