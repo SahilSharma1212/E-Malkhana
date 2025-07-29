@@ -1,7 +1,7 @@
 "use client";
 import supabase from "@/supabaseConfig/supabaseConnect";
 import { Copy, Plus } from "lucide-react";
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, use } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import QRCode from "react-qr-code";
 
@@ -36,30 +36,22 @@ interface PropertyDetails {
   remarks: string;
   image_url: string;
   qr_id: string;
-  police_station:string
+  police_station: string;
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     statusLogsId: string;
-  };
-}
-
-interface FormData {
-  status: string;
-  status_remarks: string;
-  handling_officer: string;
-  updated_by: string;
-  time_of_event: string;
-  location: string;
+  }>;
 }
 
 export default function Page({ params }: PageProps) {
+  const { statusLogsId } = use(params);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [statusLogs, setStatusLogs] = useState<StatusLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [addingLogs, setAddingLogs] = useState<boolean>(false);
-  const propertyQRId = params.statusLogsId;
+  const propertyQRId = statusLogsId;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,6 +102,7 @@ export default function Page({ params }: PageProps) {
       await navigator.clipboard.writeText(propertyQRId);
       toast.success("QR ID copied");
     } catch (error) {
+      console.log(error);
       toast.error("Failed to copy QR ID");
     }
   };
@@ -117,7 +110,7 @@ export default function Page({ params }: PageProps) {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const newLog: StatusLog = {
       qr_id: propertyQRId,
       status: formData.get("status") as string,
@@ -131,13 +124,13 @@ export default function Page({ params }: PageProps) {
 
     try {
       const { error } = await supabase.from("status_logs_table").insert([newLog]);
-      
+
       if (error) {
         console.error("Insert error", error.message);
         toast.error("Failed to add log");
         return;
       }
-      
+
       toast.success("Log added successfully");
       setStatusLogs((prev) => [...prev, newLog]);
       setAddingLogs(false);
@@ -151,12 +144,11 @@ export default function Page({ params }: PageProps) {
     <div className="bg-blue-100 p-2 min-h-screen">
       <div className="p-3 bg-white rounded-md pl-8 pt-7">
         {loading && <div className="text-center">Loading...</div>}
-        
+
         {!loading && propertyDetails && (
           <div className="mb-6 bg-blue-100 p-4 rounded shadow-sm flex flex-col items-center">
             <h2 className="text-3xl font-bold mb-4 text-center">Property Details</h2>
             <div className="flex flex-wrap w-full h-full items-center max-lg:flex-col max-lg:items-center max-sm:items-start gap-5">
-                
               <div className="flex flex-col items-center gap-6 w-[18%] max-md:w-full h-full mb-8 border py-8 rounded-sm border-gray-600 bg-white max-lg:w-70">
                 <QRCode value={propertyQRId} className="h-32 w-32" />
                 <div className="flex items-center gap-2 bg-blue-100 px-2 py-1 rounded-sm max-w-64 overflow-x-auto">
@@ -175,7 +167,7 @@ export default function Page({ params }: PageProps) {
                 </div>
               </div>
 
-              <div className="flex justify-justiify gap-5 text-sm w-[78%] max-md:w-[100%] h-full max-md:justify-center flex-wrap max-lg:w-[98%]">
+              <div className="flex justify-justify gap-5 text-sm w-[78%] max-md:w-[100%] h-full max-md:justify-center flex-wrap max-lg:w-[98%]">
                 {[
                   { label: "Property Number", value: propertyDetails.property_number },
                   { label: "FIR Number", value: propertyDetails.fir_number },
@@ -202,12 +194,10 @@ export default function Page({ params }: PageProps) {
                   </div>
                 ))}
               </div>
-
             </div>
           </div>
         )}
 
-        {/* Logs table tag */}
         <div className="flex flex-col items-center">
           <h1 className="text-3xl font-bold text-blue-700 mb-2">Status Logs</h1>
           {statusLogs.length === 0 ? (
@@ -245,7 +235,6 @@ export default function Page({ params }: PageProps) {
         </div>
 
         <div className="p-4 bg-white rounded-md mt-3 flex items-center justify-center flex-col">
-            {/* Add Logs Button */}
           <button
             className={`inline-flex items-center justify-center gap-2 bg-green-500 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "hidden" : ""}`}
             onClick={() => setAddingLogs(!addingLogs)}
