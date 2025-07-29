@@ -2,28 +2,49 @@
 
 import React, { useRef, useState } from "react";
 import supabase from "@/supabaseConfig/supabaseConnect";
-
+import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 import QRCode from "react-qr-code";
 import Image from "next/image";
-
 export default function PropertyForm() {
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      console.log("Selected file:", file.name);
-      // You can add preview or upload logic here
+    if (!file) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("property-images")
+      .upload(filePath, file);
+
+    if (error) {
+      console.error("Upload failed:", error.message);
+      return;
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("property-images")
+      .getPublicUrl(filePath);
+
+    if (publicUrlData?.publicUrl) {
+      setImagePreviewUrl(publicUrlData.publicUrl);
+      setUploadedImageUrl(publicUrlData.publicUrl);
+      console.log("✅ Public URL:", publicUrlData.publicUrl);
     }
   };
+
 
   const [uuid, setUuid] = useState<string | null>(null);
 
@@ -38,12 +59,13 @@ export default function PropertyForm() {
     description1: "",
     ioName: "",
     caseStatus: "",
-    extraInfo: "",
+    updationDate: "",
     propertyTag: "",
     propertyLocation: "",
     rackNumber: "",
     boxNumber: "",
     remarks: "",
+    policeStation: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -51,41 +73,43 @@ export default function PropertyForm() {
   };
 
 
-  const handleSubmit = async(e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const newUuid = uuidv4();
     setUuid(newUuid);
 
     const { data, error } = await supabase
-    .from("Property_table")
-    .insert([
-      {
-        property_number: formData.propertyNumber,
-        name_of_court: formData.courtName,
-        fir_number: formData.firNumber,
-        category_of_offence: formData.offenceCategory,
-        under_section: formData.section,
-        date_of_seizure: formData.seizureDate,
-        description: formData.description1,
-        name_of_io: formData.ioName,
-        case_status: formData.caseStatus,
-        extra_info: formData.extraInfo,
-        property_tag: formData.propertyTag,
-        location_of_property: formData.propertyLocation,
-        rack_number: formData.rackNumber,
-        box_number: formData.boxNumber,
-        remarks: formData.remarks,
-        qr_id: newUuid,
-      },
-    ]);
+      .from("Property_table")
+      .insert([
+        {
+          property_number: formData.propertyNumber,
+          name_of_court: formData.courtName,
+          fir_number: formData.firNumber,
+          category_of_offence: formData.offenceCategory,
+          under_section: formData.section,
+          date_of_seizure: formData.seizureDate,
+          description: formData.description1,
+          name_of_io: formData.ioName,
+          case_status: formData.caseStatus,
+          updation_date: formData.updationDate,
+          property_tag: formData.propertyTag,
+          location_of_property: formData.propertyLocation,
+          rack_number: formData.rackNumber,
+          box_number: formData.boxNumber,
+          remarks: formData.remarks,
+          qr_id: newUuid,
+          police_station: formData.policeStation,
+          image_url: uploadedImageUrl || null, // Store the uploaded image URL
+        },
+      ]);
 
-  if (error) {
-    console.error("Insert error:", error);
-    return;
-  }
+    if (error) {
+      console.error("Insert error:", error);
+      return;
+    }
     setIsSubmitted(true);
-    console.log("📝 Submitted Form Data:", data);
-    console.log("🔑 Generated UUID:", newUuid);
+    const propertyAddedSuccessfully = () => toast.success('Property added successfully!');
+    propertyAddedSuccessfully();
   };
 
 
@@ -100,12 +124,13 @@ export default function PropertyForm() {
       description1: "",
       ioName: "",
       caseStatus: "",
-      extraInfo: "",
+      updationDate: "",
       propertyTag: "",
       propertyLocation: "",
       rackNumber: "",
       boxNumber: "",
       remarks: "",
+      policeStation: "",
     });
   };
 
@@ -156,13 +181,13 @@ export default function PropertyForm() {
           </div>
 
         ) : (
-          <div className={`flex items-center justify-around bg-white w-[80%] max-lg:w-[100%] max-lg:flex-col ${isSubmitted ? "hidden" : "flex"}`}>
+          <div className={`flex items-center justify-around bg-white w-[80%] max-lg:w-[100%] max-lg:flex-col ${isSubmitted ? "hidden" : "flex"}  max-sm:scale-95`}>
 
-            <div className="min-h-130 w-[75%] flex lg:flex-wrap max-lg:w-full max-lg:flex-col max-md:flex-col max-md:min-h-280 max-md:align-top ">
+            <div className="min-h-150 w-[75%] flex lg:flex-wrap max-lg:w-full max-lg:flex-col max-md:flex-col max-md:min-h-280 max-md:align-top ">
               <form
                 onSubmit={handleSubmit}
                 onReset={handleReset}
-                className="w-full h-full flex items-center justify-start px-2 pl-4 gap-3 lg:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-180 max-md:pt-8 max-lg:flex-wrap"
+                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 lg:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-180 max-md:pt-8 max-lg:flex-wrap "
               >
                 {/* Property Number */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
@@ -280,13 +305,13 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="w-48 font-semibold text-gray-700">Extra Info:</label>
+                      <label className="w-48 font-semibold text-gray-700">Updation Date:</label>
                       <input
-                        name="extraInfo"
-                        type="text"
+                        name="updationDate"
+                        type="date"
                         placeholder="Enter Name"
                         className="text-input flex-1"
-                        value={formData.extraInfo}
+                        value={formData.updationDate}
                         onChange={handleChange}
                       />
                     </div>
@@ -318,21 +343,23 @@ export default function PropertyForm() {
                         onChange={handleChange}
                       />
                     </div>
-                    <div className="flex items-end gap-2 max-md:flex-col max-md:h-20">
+
+                    {/* Rack Number and Box Number */}
+                    <div className="flex items-end  gap-2 flex-wrap max-xl:flex-col max-xl:items-end max-md:items-end max-md:h-20 max-xl:h-20">
                       <input
                         name="rackNumber"
                         type="text"
                         placeholder="Rack No."
-                        className="text-input flex-1"
+                        className="w-100 xl:h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44 max-xl:h-20"
                         value={formData.rackNumber}
                         onChange={handleChange}
-                      
+
                       />
                       <input
                         name="boxNumber"
                         type="text"
                         placeholder="Box No."
-                        className="text-input flex-1"
+                        className="w-100 h-10 text-black rounded-lg px-3 border border-gray-400 max-lg:w-64 max-md:text-sm flex-1 max-xl:w-44"
                         value={formData.boxNumber}
                         onChange={handleChange}
                       />
@@ -340,7 +367,7 @@ export default function PropertyForm() {
                   </div>
 
                   {/* Right-side textarea + buttons */}
-                  <div className="flex items-start w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
+                  <div className="flex items-start justify-between gap-2 w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
                     <div className="flex items-start w-full">
                       <label className="w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Remarks:</label>
                       <textarea
@@ -351,16 +378,29 @@ export default function PropertyForm() {
                         onChange={handleChange}
                       />
                     </div>
-                    <div className="flex justify-end gap-2 w-full mt-4">
+                    <div className="flex items-center max-sm:items-start flex-between">
+                      <label className="w-48 font-semibold text-gray-700 max-sm:w-32 max-xl:w-32 max-lg:w-47 max-md:w-48 max-2xl:w-38 max-sm:text-sm">Police Station:</label>
+                      <input
+                        name="policeStation"
+                        type="text"
+                        placeholder="Name of Police Station"
+                        className="w-58 h-10 text-black rounded-lg px-3 border border-gray-400 max-xl:w-44 max-2xl:w-50 flex-1  max-lg:w-52 max-md:w-64 max-sm:w-38"
+                        value={formData.policeStation}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    
+                  </div>
+                  
+                </div>
+                <div className="flex justify-center gap-3 w-full mt-4">
                       <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600" onClick={() => handleSubmit}>
                         Submit
                       </button>
-                      <button type="reset" className="text-blue-700 border-blue-500 border px-4 py-2 rounded-md font-semibold">
+                      <button type="reset" className="text-blue-700 border-blue-500 border px-4 py-2 rounded-md font-semibold hover:bg-gray-200">
                         Reset
                       </button>
                     </div>
-                  </div>
-                </div>
               </form>
             </div>
 
@@ -369,7 +409,6 @@ export default function PropertyForm() {
 
               <p className='text-gray-700 font-semibold mt-4'>Upload Image</p>
 
-              {/* Hidden input */}
               <input
                 type="file"
                 accept="image/*"
@@ -378,14 +417,18 @@ export default function PropertyForm() {
                 className="hidden"
               />
 
-              {/* Custom button */}
-              <button
-                onClick={handleUploadClick}
-                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Choose Image
-              </button>
+
+              {imagePreviewUrl && (
+                <Image
+                  src={imagePreviewUrl}
+                  alt="Uploaded Preview"
+                  width={160}
+                  height={160}
+                  className="mt-4 rounded-lg border border-gray-300 shadow"
+                />
+              )}
             </div>
+
           </div>
         )
       }
