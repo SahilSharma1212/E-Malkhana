@@ -103,6 +103,8 @@ export default function Page() {
           onSubmit={handleSearch}
         >
           <div className='flex gap-2 flex-wrap items-center justify-between'>
+
+            {/* Search Category */}
             <div className='flex items-center gap-2 max-sm:w-full'>
               <label htmlFor="searchCategory" className='text-white font-semibold max-sm:text-sm'>Search By</label>
               <select
@@ -125,6 +127,7 @@ export default function Page() {
               </select>
             </div>
 
+            {/* Search Value */}
             <div className='flex items-center gap-2 max-sm:w-full'>
               <label htmlFor="searchValue" className='text-white font-semibold max-sm:text-sm'>Search Value</label>
               <input
@@ -136,8 +139,9 @@ export default function Page() {
                 placeholder='Enter...'
               />
             </div>
+            
           </div>
-
+            {/* Search buttons */}
           <div className='flex gap-2'>
             <button
               type='submit'
@@ -208,13 +212,13 @@ export default function Page() {
                     <td className='px-3 py-2 flex gap-2 justify-center' title={item.description}>
                       <button
                         className='bg-green-500 text-white px-2 py-1 rounded-sm hover:bg-green-600 flex items-center gap-1'
-                        onClick={() => router.push(`/add-status-logs?propertyId=${item.id}`)}
+                        onClick={() => router.push(`/search-property/${item.qr_id}`)}
                       >
                         Add <Plus className='text-white' />
                       </button>
                       <button
                         className='bg-blue-500 text-white px-2 py-1 rounded-sm hover:bg-blue-600 flex items-center gap-1'
-                        onClick={() => router.push(`/view-status-logs?propertyId=${item.id}`)}
+                        onClick={() => router.push(`/search-property/${item.qr_id}`)}
                       >
                         <Eye className='text-white' />
                       </button>

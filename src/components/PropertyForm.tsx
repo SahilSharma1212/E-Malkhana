@@ -74,72 +74,93 @@ export default function PropertyForm() {
 
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Check if any required field is empty
-  const requiredFields = [
-    formData.propertyNumber,
-    formData.courtName,
-    formData.firNumber,
-    formData.offenceCategory,
-    formData.section,
-    formData.seizureDate,
-    formData.description1,
-    formData.ioName,
-    formData.caseStatus,
-    formData.updationDate,
-    formData.propertyTag,
-    formData.propertyLocation,
-    formData.rackNumber,
-    formData.boxNumber,
-    formData.remarks,
-    formData.policeStation,
-  ];
+    // Check if any required field is empty
+    const requiredFields = [
+      formData.propertyNumber,
+      formData.courtName,
+      formData.firNumber,
+      formData.offenceCategory,
+      formData.section,
+      formData.seizureDate,
+      formData.description1,
+      formData.ioName,
+      formData.caseStatus,
+      formData.updationDate,
+      formData.propertyTag,
+      formData.propertyLocation,
+      formData.rackNumber,
+      formData.boxNumber,
+      formData.remarks,
+      formData.policeStation,
+    ];
 
-  const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
+    const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
 
-  if (isEmpty) {
-    toast.error("Please fill all the fields before submitting.");
-    return;
-  }
+    if (isEmpty) {
+      toast.error("Please fill all the fields before submitting.");
+      return;
+    }
 
-  const newUuid = uuidv4();
-  setUuid(newUuid);
+    const newUuid = uuidv4();
+    setUuid(newUuid);
 
-  const { data, error } = await supabase
-    .from("property_table")
-    .insert([
-      {
-        property_number: formData.propertyNumber,
-        name_of_court: formData.courtName,
-        fir_number: formData.firNumber,
-        category_of_offence: formData.offenceCategory,
-        under_section: formData.section,
-        date_of_seizure: formData.seizureDate,
-        description: formData.description1,
-        name_of_io: formData.ioName,
-        case_status: formData.caseStatus,
-        updation_date: formData.updationDate,
-        property_tag: formData.propertyTag,
-        location_of_property: formData.propertyLocation,
-        rack_number: formData.rackNumber,
-        box_number: formData.boxNumber,
-        remarks: formData.remarks,
-        qr_id: newUuid,
-        police_station: formData.policeStation,
-        image_url: uploadedImageUrl || null,
-      },
-    ]);
+    const { data, error } = await supabase
+      .from("property_table")
+      .insert([
+        {
+          property_number: formData.propertyNumber,
+          name_of_court: formData.courtName,
+          fir_number: formData.firNumber,
+          category_of_offence: formData.offenceCategory,
+          under_section: formData.section,
+          date_of_seizure: formData.seizureDate,
+          description: formData.description1,
+          name_of_io: formData.ioName,
+          case_status: formData.caseStatus,
+          updation_date: formData.updationDate,
+          property_tag: formData.propertyTag,
+          location_of_property: formData.propertyLocation,
+          rack_number: formData.rackNumber,
+          box_number: formData.boxNumber,
+          remarks: formData.remarks,
+          qr_id: newUuid,
+          police_station: formData.policeStation,
+          image_url: uploadedImageUrl || null,
+        },
+      ]);
 
-  if (error) {
-    console.error("Insert error:", error);
-    toast.error("Error adding property.");
-    return;
-  }
+    if (error) {
+      console.error("Insert error:", error);
+      toast.error("Error adding property.");
+      return;
+    }
 
-  setIsSubmitted(true);
-  toast.success("Property added successfully!");
-};
+    const { data: statusUpdateLogs, error: statusError } = await supabase
+      .from("status_logs_table")
+      .insert([
+        {
+          qr_id: newUuid,
+          status: "Initial entry of the item",
+          status_remarks: formData.remarks,
+          handling_officer: formData.ioName,
+          location: formData.propertyLocation,
+          updated_by: formData.ioName,
+          time_of_event: new Date().toISOString(),
+        },
+      ]);
+
+    if (statusError) {
+      toast.error("Couldn't create initial status log");
+      return;
+    }
+
+
+    setIsSubmitted(true);
+    toast.success("Property added successfully!");
+    toast.success("Initial status updated");
+  };
 
 
 
@@ -418,18 +439,18 @@ export default function PropertyForm() {
                         onChange={handleChange}
                       />
                     </div>
-                    
+
                   </div>
-                  
+
                 </div>
                 <div className="flex justify-center gap-3 w-full mt-4">
-                      <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600" onClick={() => handleSubmit}>
-                        Submit
-                      </button>
-                      <button type="reset" className="text-blue-700 border-blue-500 border px-4 py-2 rounded-md font-semibold hover:bg-gray-200">
-                        Reset
-                      </button>
-                    </div>
+                  <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600" onClick={() => handleSubmit}>
+                    Submit
+                  </button>
+                  <button type="reset" className="text-blue-700 border-blue-500 border px-4 py-2 rounded-md font-semibold hover:bg-gray-200">
+                    Reset
+                  </button>
+                </div>
               </form>
             </div>
 
