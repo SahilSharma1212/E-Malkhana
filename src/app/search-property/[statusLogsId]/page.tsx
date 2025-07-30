@@ -8,7 +8,7 @@ import QRCode from "react-qr-code";
 
 // Define interfaces
 interface StatusLog {
-  qr_id: string;
+  property_id: string;
   status: string;
   created_at: string;
   handling_officer: string;
@@ -39,6 +39,7 @@ interface PropertyDetails {
   image_url: string;
   qr_id: string;
   police_station: string;
+  property_id:string;
 }
 
 interface PageProps {
@@ -54,7 +55,7 @@ export default function Page({ params }: PageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [addingLogs, setAddingLogs] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const propertyQRId = statusLogsId;
+  const propertyId = statusLogsId;
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null); // Added ref for the form
@@ -68,7 +69,7 @@ export default function Page({ params }: PageProps) {
         const { data: property, error: propertyError } = await supabase
           .from("property_table")
           .select("*")
-          .eq("qr_id", propertyQRId)
+          .eq("property_id", propertyId)
           .single();
 
         if (propertyError) {
@@ -82,7 +83,7 @@ export default function Page({ params }: PageProps) {
         const { data: logs, error: logsError } = await supabase
           .from("status_logs_table")
           .select("*")
-          .eq("qr_id", propertyQRId);
+          .eq("property_id", propertyId);
 
         if (logsError) {
           console.error("❌ Logs fetch error:", logsError.message);
@@ -98,14 +99,14 @@ export default function Page({ params }: PageProps) {
       }
     };
 
-    if (propertyQRId) {
+    if (propertyId) {
       fetchData();
     }
-  }, [propertyQRId]);
+  }, [propertyId]);
 
   const handleCopyQRId = async () => {
     try {
-      await navigator.clipboard.writeText(propertyQRId);
+      await navigator.clipboard.writeText(propertyDetails!.qr_id);
       toast.success("QR ID copied");
     } catch (error) {
       console.error(error);
@@ -160,7 +161,7 @@ export default function Page({ params }: PageProps) {
       }
 
       const newLog: StatusLog = {
-        qr_id: propertyQRId,
+        property_id: propertyId,
         status,
         status_remarks: status_remarks || "",
         handling_officer,
@@ -221,11 +222,11 @@ export default function Page({ params }: PageProps) {
             <h2 className="text-3xl font-bold mb-4 text-center">Property Details</h2>
             <div className="flex flex-wrap w-full h-full items-center max-lg:flex-col max-lg:items-center max-sm:items-start gap-5">
               <div className="flex flex-col items-center gap-6 w-[18%] max-md:w-full h-full mb-8 border py-8 rounded-sm border-gray-600 bg-white max-lg:w-70">
-                <QRCode value={propertyQRId} className="h-32 w-32" />
+                <QRCode value={propertyDetails.qr_id} className="h-32 w-32" />
                 <div className="flex items-center gap-2 bg-blue-100 px-2 py-1 rounded-sm max-w-64 overflow-x-auto">
-                  <h2 className="text-sm font-semibold whitespace-nowrap">QR ID:</h2>
-                  <p className="text-sm text-gray-700 break-all select-all">
-                    {propertyQRId.slice(0, 10) + "..."}
+                  
+                  <p className="text-sm font-bold text-gray-700 break-all select-all">
+                    Copy Unique Qr
                   </p>
                   <button
                     onClick={handleCopyQRId}

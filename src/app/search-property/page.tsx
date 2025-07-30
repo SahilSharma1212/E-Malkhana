@@ -20,7 +20,7 @@ interface DataInterface {
   police_station: string;
   property_number: string;
   property_tag: string;
-  qr_id: string;
+  property_id: string;
   rack_number: string;
   remarks: string;
   swdfgb: string;
@@ -216,7 +216,7 @@ export default function Page() {
                     <td className='px-3 py-2 flex gap-2 justify-center border' title={"Add Logs"}>
                       <button
                         className='bg-white text-blue-500 p-1 rounded-b-xs hover:bg-blue-100 flex items-center gap-1 border border-blue-500 rounded-sm'
-                        onClick={() => router.push(`/search-property/${item.qr_id}`)}
+                        onClick={() => router.push(`/search-property/${item.property_id}`)}
                       >
                         <Logs className='text-blue-500' />
                       </button>
