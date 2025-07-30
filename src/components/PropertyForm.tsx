@@ -192,7 +192,7 @@ export default function PropertyForm() {
         .from("status_logs_table")
         .insert([
           {
-            qr_id: qrId,
+            property_id: PropID,
             status: "Initial entry of the item",
             status_remarks: formData.remarks,
             handling_officer: formData.ioName,
