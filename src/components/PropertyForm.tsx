@@ -1,14 +1,14 @@
 "use client";
-
 import React, { useRef, useState, useEffect } from "react";
 import supabase from "@/supabaseConfig/supabaseConnect";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function PropertyForm() {
 
+  const router = useRouter();
   const searchParams = useSearchParams();
   const qrId = searchParams.get("qrId");
 
@@ -36,7 +36,7 @@ export default function PropertyForm() {
     remarks: "",
     policeStation: "",
   });
-  let PropID:string;
+  let PropID: string;
 
   // Cleanup preview URLs to prevent memory leaks
   useEffect(() => {
@@ -95,131 +95,131 @@ export default function PropertyForm() {
 
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!qrId) {
-    toast.error("Invalid QR ID in URL.");
-    return;
-  }
+    if (!qrId) {
+      toast.error("Invalid QR ID in URL.");
+      return;
+    }
 
-  const requiredFields = [
-    formData.propertyNumber,
-    formData.courtName,
-    formData.firNumber,
-    formData.offenceCategory,
-    formData.section,
-    formData.seizureDate,
-    formData.description1,
-    formData.ioName,
-    formData.caseStatus,
-    formData.updationDate,
-    formData.propertyTag,
-    formData.propertyLocation,
-    formData.rackNumber,
-    formData.boxNumber,
-    formData.remarks,
-    formData.policeStation,
-  ];
+    const requiredFields = [
+      formData.propertyNumber,
+      formData.courtName,
+      formData.firNumber,
+      formData.offenceCategory,
+      formData.section,
+      formData.seizureDate,
+      formData.description1,
+      formData.ioName,
+      formData.caseStatus,
+      formData.updationDate,
+      formData.propertyTag,
+      formData.propertyLocation,
+      formData.rackNumber,
+      formData.boxNumber,
+      formData.remarks,
+      formData.policeStation,
+    ];
 
-  const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
-  if (isEmpty || selectedFiles.length === 0) {
-    toast.error("Please fill all fields and select at least one image before submitting.");
-    return;
-  }
+    const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
+    if (isEmpty || selectedFiles.length === 0) {
+      toast.error("Please fill all fields and select at least one image before submitting.");
+      return;
+    }
 
-  setUploading(true);
+    setUploading(true);
 
-  try {
-    // Upload images
-    const uploadPromises = selectedFiles.map(async (file) => {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `image-proof/${fileName}`;
+    try {
+      // Upload images
+      const uploadPromises = selectedFiles.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const filePath = `image-proof/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('property-images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('property-images')
+          .upload(filePath, file);
 
-      if (uploadError) {
-        throw new Error(`Image upload failed: ${uploadError.message}`);
+        if (uploadError) {
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(filePath);
+
+        return urlData.publicUrl;
+      });
+
+      const imageUrls = await Promise.all(uploadPromises);
+      const newPropertyId = uuidv4();
+
+      // Update existing row with qr_id == qrId
+      const { error: updateError } = await supabase
+        .from("property_table")
+        .update({
+          property_id: newPropertyId,
+          property_number: formData.propertyNumber,
+          name_of_court: formData.courtName,
+          fir_number: formData.firNumber,
+          category_of_offence: formData.offenceCategory,
+          under_section: formData.section,
+          date_of_seizure: formData.seizureDate,
+          description: formData.description1,
+          name_of_io: formData.ioName,
+          case_status: formData.caseStatus,
+          updation_date: formData.updationDate,
+          property_tag: formData.propertyTag,
+          location_of_property: formData.propertyLocation,
+          rack_number: formData.rackNumber,
+          box_number: formData.boxNumber,
+          remarks: formData.remarks,
+          police_station: formData.policeStation,
+          image_url: imageUrls,
+        })
+        .eq("qr_id", window.location.href);
+
+      if (updateError) {
+        console.error("Update error:", updateError);
+        toast.error("Error updating property.");
+        setUploading(false);
+        return;
+      }
+      PropID = newPropertyId
+
+      // Insert into status_logs_table as before
+      const { error: statusError } = await supabase
+        .from("status_logs_table")
+        .insert([
+          {
+            qr_id: qrId,
+            status: "Initial entry of the item",
+            status_remarks: formData.remarks,
+            handling_officer: formData.ioName,
+            location: formData.propertyLocation,
+            updated_by: formData.ioName,
+            time_of_event: new Date().toISOString(),
+          },
+        ]);
+
+      if (statusError) {
+        toast.error("Couldn't create initial status log");
+        setUploading(false);
+        return;
       }
 
-      const { data: urlData } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(filePath);
+      setIsSubmitted(true);
+      setUuid(qrId); // show this as confirmation
+      toast.success("Property updated successfully!");
+      toast.success("Initial status updated");
 
-      return urlData.publicUrl;
-    });
-
-    const imageUrls = await Promise.all(uploadPromises);
-    const newPropertyId = uuidv4();
-
-    // Update existing row with qr_id == qrId
-    const { error: updateError } = await supabase
-      .from("property_table")
-      .update({
-        property_id: newPropertyId,
-        property_number: formData.propertyNumber,
-        name_of_court: formData.courtName,
-        fir_number: formData.firNumber,
-        category_of_offence: formData.offenceCategory,
-        under_section: formData.section,
-        date_of_seizure: formData.seizureDate,
-        description: formData.description1,
-        name_of_io: formData.ioName,
-        case_status: formData.caseStatus,
-        updation_date: formData.updationDate,
-        property_tag: formData.propertyTag,
-        location_of_property: formData.propertyLocation,
-        rack_number: formData.rackNumber,
-        box_number: formData.boxNumber,
-        remarks: formData.remarks,
-        police_station: formData.policeStation,
-        image_url: imageUrls,
-      })
-      .eq("qr_id", qrId);
-
-    if (updateError) {
-      console.error("Update error:", updateError);
-      toast.error("Error updating property.");
+    } catch (err) {
+      toast.error("An unexpected error occurred.");
+      console.error(err);
+    } finally {
       setUploading(false);
-      return;
     }
-    PropID = newPropertyId
-
-    // Insert into status_logs_table as before
-    const { error: statusError } = await supabase
-      .from("status_logs_table")
-      .insert([
-        {
-          qr_id: qrId,
-          status: "Initial entry of the item",
-          status_remarks: formData.remarks,
-          handling_officer: formData.ioName,
-          location: formData.propertyLocation,
-          updated_by: formData.ioName,
-          time_of_event: new Date().toISOString(),
-        },
-      ]);
-
-    if (statusError) {
-      toast.error("Couldn't create initial status log");
-      setUploading(false);
-      return;
-    }
-
-    setIsSubmitted(true);
-    setUuid(qrId); // show this as confirmation
-    toast.success("Property updated successfully!");
-    toast.success("Initial status updated");
-
-  } catch (err) {
-    toast.error("An unexpected error occurred.");
-    console.error(err);
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
 
   const handleReset = () => {
@@ -248,6 +248,7 @@ export default function PropertyForm() {
     }
   };
 
+
   return (
     <>
       {isSubmitted && uuid ? (
@@ -259,7 +260,7 @@ export default function PropertyForm() {
             Your unique property ID is shown below:
           </p>
           <div className="flex flex-col items-center gap-2">
-            
+
             <div className="flex items-center gap-2 mt-2 bg-gray-100 px-4 py-2 rounded-md">
               <span className="font-mono text-sm text-gray-800">{uuid}</span>
               <button
@@ -281,6 +282,7 @@ export default function PropertyForm() {
               setIsSubmitted(false);
               setUuid(null);
               handleReset();
+              router.push(`/search-property/${PropID}`)
             }}
             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
           >
