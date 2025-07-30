@@ -14,6 +14,7 @@ export default function PropertyForm() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -153,8 +154,9 @@ export default function PropertyForm() {
 
       const imageUrls = await Promise.all(uploadPromises);
       const newPropertyId = uuidv4();
+      PropID = newPropertyId;
 
-      // Update existing row with qr_id == qrId
+      // Update existing row with qr_id == url
       const { error: updateError } = await supabase
         .from("property_table")
         .update({
@@ -185,7 +187,6 @@ export default function PropertyForm() {
         setUploading(false);
         return;
       }
-      PropID = newPropertyId
 
       // Insert into status_logs_table as before
       const { error: statusError } = await supabase
@@ -209,7 +210,7 @@ export default function PropertyForm() {
       }
 
       setIsSubmitted(true);
-      setUuid(qrId); // show this as confirmation
+      setUuid(PropID); // show this as confirmation
       toast.success("Property updated successfully!");
       toast.success("Initial status updated");
 
@@ -286,7 +287,7 @@ export default function PropertyForm() {
             }}
             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
           >
-            Reset
+            View Logs
           </button>
         </div>
       ) : (
