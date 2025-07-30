@@ -14,7 +14,7 @@ export default function Page() {
 
         // 👇 create array of 10 unique entries
         const entries = Array.from({ length: 10 }, () => ({
-            qr_id: `https://e-malkhana-smoky.vercel.app?qrId=${uuidv4()}`,
+            qr_id: `https://e-malkhana-smoky.vercel.app/?qrId=${uuidv4()}`,
         }))
 
         const { data, error } = await supabase
