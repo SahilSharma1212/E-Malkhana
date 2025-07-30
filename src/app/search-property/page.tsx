@@ -1,5 +1,5 @@
 "use client";
-import { Eye, Plus, Search, X } from 'lucide-react';
+import { ChevronLeft, Logs, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import supabase from '@/supabaseConfig/supabaseConnect';
 import { useRouter } from 'next/navigation';
@@ -130,35 +130,39 @@ export default function Page() {
             {/* Search Value */}
             <div className='flex items-center gap-2 max-sm:w-full'>
               <label htmlFor="searchValue" className='text-white font-semibold max-sm:text-sm'>Search Value</label>
-              <input
-                type="text"
-                name='searchValue'
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                className='bg-white h-8 w-44 max-lg:w-32 rounded-sm px-2 outline-none max-md:w-full'
-                placeholder='Enter...'
-              />
+              <div className='flex items-center max-sm:w-full '>
+                <input
+                  type="text"
+                  name='searchValue'
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  className='bg-white h-8 w-44 max-lg:w-32 rounded-l-sm px-2 outline-none max-md:w-full'
+                  placeholder='Enter...'
+                />
+                <button
+                  type='submit'
+                  className='bg-white py-1 rounded-r-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-blue-100 max-md:px-2'
+                  disabled={loading}
+                >
+                  <Search className='text-blue-300' />
+                </button>
+              </div>
+
             </div>
-            
+
           </div>
-            {/* Search buttons */}
+          {/* Search buttons */}
           <div className='flex gap-2'>
-            <button
-              type='submit'
-              className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-blue-100 max-md:px-2'
-              disabled={loading}
-            >
-              <p className='lg:visible max-lg:hidden max-md:visible'>Search</p>
-              <Search className='text-blue-300' />
-            </button>
+
             <button
               type='button'
-              className='bg-white py-1 rounded-sm px-4 outline-none flex justify-center items-center gap-3 hover:bg-red-100 max-md:px-2'
+              className='bg-white py-1 rounded-sm px-2 outline-none flex justify-center items-center gap-2 hover:bg-red-100 max-md:px-2'
               onClick={handleReset}
               disabled={loading}
             >
+
+              <ChevronLeft className='text-red-300' />
               <p className='max-lg:hidden max-md:visible'>Back</p>
-              <X className='text-red-300' />
             </button>
           </div>
         </form>
@@ -209,18 +213,12 @@ export default function Page() {
                     <td className='px-3 py-2 border' title={item.description}>{item.box_number}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.updation_date ? new Date(item.updation_date).toLocaleDateString() : "N/A"}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.case_status}</td>
-                    <td className='px-3 py-2 flex gap-2 justify-center' title={item.description}>
+                    <td className='px-3 py-2 flex gap-2 justify-center border' title={"Add Logs"}>
                       <button
-                        className='bg-green-500 text-white px-2 py-1 rounded-sm hover:bg-green-600 flex items-center gap-1'
+                        className='bg-white text-blue-500 p-1 rounded-b-xs hover:bg-blue-100 flex items-center gap-1 border border-blue-500 rounded-sm'
                         onClick={() => router.push(`/search-property/${item.qr_id}`)}
                       >
-                        Add <Plus className='text-white' />
-                      </button>
-                      <button
-                        className='bg-blue-500 text-white px-2 py-1 rounded-sm hover:bg-blue-600 flex items-center gap-1'
-                        onClick={() => router.push(`/search-property/${item.qr_id}`)}
-                      >
-                        <Eye className='text-white' />
+                        <Logs className='text-blue-500' />
                       </button>
                     </td>
                   </tr>
