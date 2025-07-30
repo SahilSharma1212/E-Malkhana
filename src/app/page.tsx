@@ -1,4 +1,4 @@
-
+"use client"
 import PropertyForm from '@/components/PropertyForm'
 import Image from 'next/image'
 import React from 'react'
