@@ -1,12 +1,13 @@
 "use client"
 import PropertyForm from '@/components/PropertyForm'
 import Image from 'next/image'
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Toaster } from 'react-hot-toast'
 
 export default function page() {
   return (
     // This is the main page of the application
+    <Suspense fallback={<div>Loading...</div>}>
     <div className='flex flex-col items-center justify-start max-h-screen w-full overflow-x-hidden scrollbar-hidden'>
 
 
@@ -35,5 +36,6 @@ export default function page() {
       </div>
       <Toaster />
     </div>
+    </Suspense>
   )
 }
