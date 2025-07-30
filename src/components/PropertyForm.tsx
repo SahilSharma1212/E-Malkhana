@@ -4,14 +4,18 @@ import React, { useRef, useState, useEffect } from "react";
 import supabase from "@/supabaseConfig/supabaseConnect";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
-import QRCode from "react-qr-code";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 
 export default function PropertyForm() {
+
+  const searchParams = useSearchParams();
+  const qrId = searchParams.get("qrId");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uuid, setUuid] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -32,160 +36,191 @@ export default function PropertyForm() {
     remarks: "",
     policeStation: "",
   });
+  let PropID:string;
 
-  // Cleanup preview URL to prevent memory leaks
+  // Cleanup preview URLs to prevent memory leaks
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [previewUrl]);
+  }, [previewUrls]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type and size
-      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image (PNG, JPEG, JPG).');
-        return;
-      }
-      if (file.size > maxSize) {
-        toast.error('File size exceeds 5MB.');
-        return;
-      }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    const validNewFiles = files.filter(
+      file => validTypes.includes(file.type) && file.size <= maxSize
+    );
+
+    const invalidFiles = files.filter(
+      file => !validTypes.includes(file.type) || file.size > maxSize
+    );
+
+    if (invalidFiles.length > 0) {
+      toast.error('Some files are invalid. Only PNG, JPEG under 5MB allowed.');
     }
-  };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    // Check if any required field is empty
-    const requiredFields = [
-      formData.propertyNumber,
-      formData.courtName,
-      formData.firNumber,
-      formData.offenceCategory,
-      formData.section,
-      formData.seizureDate,
-      formData.description1,
-      formData.ioName,
-      formData.caseStatus,
-      formData.updationDate,
-      formData.propertyTag,
-      formData.propertyLocation,
-      formData.rackNumber,
-      formData.boxNumber,
-      formData.remarks,
-      formData.policeStation,
-    ];
-
-    const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
-    if (isEmpty || !selectedFile) {
-      toast.error("Please fill all fields and select an image before submitting.");
+    const totalFiles = selectedFiles.length + validNewFiles.length;
+    if (totalFiles > 10) {
+      toast.error("You can upload a maximum of 10 images.");
       return;
     }
 
-    setUploading(true);
+    const newPreviews = validNewFiles.map(file => URL.createObjectURL(file));
 
-    // Upload image first
-    const fileExt = selectedFile.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `image-proof/${fileName}`;
+    setSelectedFiles(prev => [...prev, ...validNewFiles]);
+    setPreviewUrls(prev => [...prev, ...newPreviews]);
+  };
 
-    try {
+  const handleRemoveFile = (indexToRemove: number) => {
+    const newFiles = [...selectedFiles];
+    const newPreviews = [...previewUrls];
+
+    newFiles.splice(indexToRemove, 1);
+    URL.revokeObjectURL(newPreviews[indexToRemove]);
+    newPreviews.splice(indexToRemove, 1);
+
+    setSelectedFiles(newFiles);
+    setPreviewUrls(newPreviews);
+  };
+
+
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  if (!qrId) {
+    toast.error("Invalid QR ID in URL.");
+    return;
+  }
+
+  const requiredFields = [
+    formData.propertyNumber,
+    formData.courtName,
+    formData.firNumber,
+    formData.offenceCategory,
+    formData.section,
+    formData.seizureDate,
+    formData.description1,
+    formData.ioName,
+    formData.caseStatus,
+    formData.updationDate,
+    formData.propertyTag,
+    formData.propertyLocation,
+    formData.rackNumber,
+    formData.boxNumber,
+    formData.remarks,
+    formData.policeStation,
+  ];
+
+  const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
+  if (isEmpty || selectedFiles.length === 0) {
+    toast.error("Please fill all fields and select at least one image before submitting.");
+    return;
+  }
+
+  setUploading(true);
+
+  try {
+    // Upload images
+    const uploadPromises = selectedFiles.map(async (file) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `image-proof/${fileName}`;
+
       const { error: uploadError } = await supabase.storage
         .from('property-images')
-        .upload(filePath, selectedFile);
+        .upload(filePath, file);
 
       if (uploadError) {
-        toast.error(`Image upload failed: ${uploadError.message}`);
-        setUploading(false);
-        return;
+        throw new Error(`Image upload failed: ${uploadError.message}`);
       }
 
-      // Get the public URL of the uploaded image
       const { data: urlData } = supabase.storage
         .from('property-images')
         .getPublicUrl(filePath);
 
-      const imageUrl = urlData.publicUrl;
+      return urlData.publicUrl;
+    });
 
-      // Proceed with form submission
-      const newUuid = uuidv4();
-      setUuid(newUuid);
+    const imageUrls = await Promise.all(uploadPromises);
+    const newPropertyId = uuidv4();
 
-      const { error: insertError } = await supabase
-        .from("property_table")
-        .insert([
-          {
-            property_number: formData.propertyNumber,
-            name_of_court: formData.courtName,
-            fir_number: formData.firNumber,
-            category_of_offence: formData.offenceCategory,
-            under_section: formData.section,
-            date_of_seizure: formData.seizureDate,
-            description: formData.description1,
-            name_of_io: formData.ioName,
-            case_status: formData.caseStatus,
-            updation_date: formData.updationDate,
-            property_tag: formData.propertyTag,
-            location_of_property: formData.propertyLocation,
-            rack_number: formData.rackNumber,
-            box_number: formData.boxNumber,
-            remarks: formData.remarks,
-            qr_id: newUuid,
-            police_station: formData.policeStation,
-            image_url: imageUrl || null,
-          },
-        ]);
+    // Update existing row with qr_id == qrId
+    const { error: updateError } = await supabase
+      .from("property_table")
+      .update({
+        property_id: newPropertyId,
+        property_number: formData.propertyNumber,
+        name_of_court: formData.courtName,
+        fir_number: formData.firNumber,
+        category_of_offence: formData.offenceCategory,
+        under_section: formData.section,
+        date_of_seizure: formData.seizureDate,
+        description: formData.description1,
+        name_of_io: formData.ioName,
+        case_status: formData.caseStatus,
+        updation_date: formData.updationDate,
+        property_tag: formData.propertyTag,
+        location_of_property: formData.propertyLocation,
+        rack_number: formData.rackNumber,
+        box_number: formData.boxNumber,
+        remarks: formData.remarks,
+        police_station: formData.policeStation,
+        image_url: imageUrls,
+      })
+      .eq("qr_id", qrId);
 
-      if (insertError) {
-        console.error("Insert error:", insertError);
-        toast.error("Error adding property.");
-        setUploading(false);
-        return;
-      }
-
-      const { error: statusError } = await supabase
-        .from("status_logs_table")
-        .insert([
-          {
-            qr_id: newUuid,
-            status: "Initial entry of the item",
-            status_remarks: formData.remarks,
-            handling_officer: formData.ioName,
-            location: formData.propertyLocation,
-            updated_by: formData.ioName,
-            time_of_event: new Date().toISOString(),
-          },
-        ]);
-
-      if (statusError) {
-        toast.error("Couldn't create initial status log");
-        setUploading(false);
-        return;
-      }
-
-      setIsSubmitted(true);
-      toast.success("Property added successfully!");
-      toast.success("Initial status updated");
-    } catch (err) {
-      toast.error("An unexpected error occurred.");
-      console.error(err);
-    } finally {
+    if (updateError) {
+      console.error("Update error:", updateError);
+      toast.error("Error updating property.");
       setUploading(false);
+      return;
     }
-  };
+    PropID = newPropertyId
+
+    // Insert into status_logs_table as before
+    const { error: statusError } = await supabase
+      .from("status_logs_table")
+      .insert([
+        {
+          qr_id: qrId,
+          status: "Initial entry of the item",
+          status_remarks: formData.remarks,
+          handling_officer: formData.ioName,
+          location: formData.propertyLocation,
+          updated_by: formData.ioName,
+          time_of_event: new Date().toISOString(),
+        },
+      ]);
+
+    if (statusError) {
+      toast.error("Couldn't create initial status log");
+      setUploading(false);
+      return;
+    }
+
+    setIsSubmitted(true);
+    setUuid(qrId); // show this as confirmation
+    toast.success("Property updated successfully!");
+    toast.success("Initial status updated");
+
+  } catch (err) {
+    toast.error("An unexpected error occurred.");
+    console.error(err);
+  } finally {
+    setUploading(false);
+  }
+};
+
 
   const handleReset = () => {
     setFormData({
@@ -206,8 +241,8 @@ export default function PropertyForm() {
       remarks: "",
       policeStation: "",
     });
-    setSelectedFile(null);
-    setPreviewUrl(null);
+    setSelectedFiles([]);
+    setPreviewUrls([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -219,17 +254,17 @@ export default function PropertyForm() {
         <div
           className={`transition-all duration-300 ease-in-out ${isSubmitted ? "flex" : "hidden"} flex-col items-center justify-center w-[80%] max-lg:w-full bg-white rounded-xl shadow-lg p-6 gap-4 pt-5`}
         >
-          <h2 className="text-3xl font-bold text-green-600">Form Submitted!</h2>
+          <h2 className="text-3xl font-bold text-green-600">Form Submitted Sucessfully !</h2>
           <p className="text-gray-700 font-medium text-center">
             Your unique property ID is shown below:
           </p>
           <div className="flex flex-col items-center gap-2">
-            <QRCode value={uuid} size={160} bgColor="#ffffff" fgColor="#000000" />
+            
             <div className="flex items-center gap-2 mt-2 bg-gray-100 px-4 py-2 rounded-md">
               <span className="font-mono text-sm text-gray-800">{uuid}</span>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(uuid || "");
+                  navigator.clipboard.writeText(PropID || "");
                   toast.success("QR ID copied");
                 }}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 text-xs rounded-md font-semibold"
@@ -286,7 +321,7 @@ export default function PropertyForm() {
               </div>
               {/* FIR Number */}
               <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                <label className="max-md:text-sm w-48 font-semibold text-gray-700">FIR Number:</label>
+                <label className="max-md:text-sm w-48 font-semibold text-gray-700">FFIR Number:</label>
                 <input
                   name="firNumber"
                   type="text"
@@ -469,31 +504,47 @@ export default function PropertyForm() {
           {/* Image Upload Area */}
           <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-lg:mt-4">
             <Image height={84} width={54} src={'/e-malkhana.png'} alt="E-Malkhana Logo" />
-            
+
             <input
               type="file"
               accept="image/png,image/jpeg,image/jpg"
               ref={fileInputRef}
               onChange={handleFileChange}
+              multiple
               className="hidden"
             />
             <button
               onClick={() => fileInputRef.current?.click()}
               className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700"
             >
-              Choose Image
+              Choose Images
             </button>
-            {previewUrl ? (
-              <Image
-                src={previewUrl}
-                alt="Preview"
-                width={160}
-                height={160}
-                className="mt-4 rounded-md border border-gray-300 shadow"
-              />
+            {previewUrls.length > 0 ? (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {previewUrls.map((url, index) => (
+                  <div key={index} className="relative w-[60px] h-[60px]">
+                    <Image
+                      src={url}
+                      alt={`Preview ${index + 1}`}
+                      width={60}
+                      height={60}
+                      className="rounded-md border border-gray-300 shadow"
+                    />
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center hover:bg-red-700"
+                      title="Remove"
+                      type="button"
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+
+              </div>
             ) : (
               <div className="mt-4 w-[160px] h-[160px] border border-dashed border-gray-400 rounded-md flex items-center justify-center text-sm text-gray-500">
-                No image selected
+                No images selected
               </div>
             )}
           </div>
