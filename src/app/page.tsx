@@ -25,24 +25,23 @@ export default function Page() {
 
       const { data, error } = await supabase
         .from('property_table')
-        .select('qr_id')
-        .eq('qr_id', qrId)
-        .single();
+        .select('*')
+        .eq('qr_id', window.location.href)
+        .maybeSingle();
 
       if (error) {
-        console.error('❌ Supabase error:', error);
-        toast.error('Error checking QR');
-        setIsValidQrId(false);
-        return;
+        toast.error("Couldn't find QR ID")
+        setIsValidQrId(false)
+      } else if (!data) {
+        toast.error('Row does NOT exist');
+        setIsValidQrId(false)
+      }else{
+        setIsValidQrId(true)
       }
 
-      if (!data || !data.qr_id ) {
-        setIsValidQrId(false);
-        toast.error('QR found but no data available');
-      } else if (Object.values(data).every(val => val === null || val === '')) {
-        setIsValidQrId(true);
-      }
     };
+
+
 
     validateQr();
   }, [qrId]);
