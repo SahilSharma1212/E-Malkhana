@@ -10,13 +10,15 @@ import toast, { Toaster } from 'react-hot-toast';
 
 export default function Page() {
   const searchParams = useSearchParams();
-  const qrId = searchParams.get('qrId');
+  const qrId = searchParams?.get('qrId'); // safer access
 
   const [isValidQrId, setIsValidQrId] = useState<boolean | null>(null); // null = loading
 
   useEffect(() => {
+    if (qrId === null) return; // wait until qrId is hydrated
+
     const validateQr = async () => {
-      if (!qrId || qrId.trim() === '') {
+      if (typeof qrId !== 'string' || qrId.trim() === '') {
         setIsValidQrId(false);
         return;
       }
@@ -34,10 +36,10 @@ export default function Page() {
         return;
       }
 
-      if (!data) {
+      if (!data || !data.qr_id ) {
         setIsValidQrId(false);
-        toast.error('Invalid QR');
-      } else {
+        toast.error('QR found but no data available');
+      } else if (Object.values(data).every(val => val === null || val === '')) {
         setIsValidQrId(true);
       }
     };
