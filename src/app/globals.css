@@ -132,3 +132,17 @@
     @apply bg-background text-foreground;
     }
 }
+
+/* In your CSS file (e.g., globals.css) */
+.bg-blue-600 {
+  background-color: #2563eb; /* Explicit hex color */
+}
+.text-white {
+  color: #ffffff; /* Explicit hex color */
+}
+.bg-green-600 {
+  background-color: #16a34a; /* Explicit hex color */
+}
+.bg-gray-400 {
+  background-color: #9ca3af; /* Explicit hex color */
+}

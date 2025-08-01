@@ -1,6 +1,7 @@
 "use client";
 import supabase from "@/supabaseConfig/supabaseConnect";
 import { Copy, FileText, FolderUp, Plus, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, FormEvent, useRef, use } from "react";
 import toast, { Toaster } from "react-hot-toast";
@@ -13,7 +14,7 @@ interface StatusLog {
   created_at: string;
   handling_officer: string;
   status_remarks: string;
-  location: string;
+  reason: string;
   time_of_event: string;
   updated_by: string;
   pdf_url: string;
@@ -22,12 +23,10 @@ interface StatusLog {
 interface PropertyDetails {
   id: string;
   created_at: string;
-  property_number: string;
   fir_number: string;
   under_section: string;
   description: string;
   property_tag: string;
-  location_of_property: string;
   rack_number: string;
   box_number: string;
   name_of_court: string;
@@ -36,10 +35,10 @@ interface PropertyDetails {
   name_of_io: string;
   case_status: string;
   remarks: string;
-  image_url: string;
+  image_url: [];
   qr_id: string;
   police_station: string;
-  property_id:string;
+  property_id: string;
 }
 
 interface PageProps {
@@ -59,6 +58,9 @@ export default function Page({ params }: PageProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null); // Added ref for the form
+  const [reason, setReason] = useState<string>("");
+  const [customReason, setCustomReason] = useState<string>(""); // for "Other"
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -124,9 +126,10 @@ export default function Page({ params }: PageProps) {
     const handling_officer = formData.get("handling_officer") as string | null;
     const updated_by = formData.get("updated_by") as string | null;
     const time_of_event = formData.get("time_of_event") as string | null;
-    const location = formData.get("location") as string | null;
+    const reasonFinal = reason === "Other" ? customReason : reason;
 
-    if (!status || !handling_officer || !updated_by || !time_of_event || !location) {
+
+    if (!status || !handling_officer || !updated_by || !time_of_event || !reason) {
       toast.error("Please fill all required fields");
       setSubmitting(false);
       return;
@@ -167,7 +170,7 @@ export default function Page({ params }: PageProps) {
         handling_officer,
         updated_by,
         time_of_event,
-        location,
+        reason: reasonFinal,
         created_at: new Date().toISOString(),
         pdf_url: pdfUrl || "",
       };
@@ -224,7 +227,7 @@ export default function Page({ params }: PageProps) {
               <div className="flex flex-col items-center gap-6 w-[18%] max-md:w-full h-full mb-8 border py-8 rounded-sm border-gray-600 bg-white max-lg:w-70">
                 <QRCode value={propertyDetails.qr_id} className="h-32 w-32" />
                 <div className="flex items-center gap-2 bg-blue-100 px-2 py-1 rounded-sm max-w-64 overflow-x-auto">
-                  
+
                   <p className="text-sm font-bold text-gray-700 break-all select-all">
                     Copy Unique Qr
                   </p>
@@ -242,12 +245,11 @@ export default function Page({ params }: PageProps) {
 
               <div className="flex justify-justify gap-5 text-sm w-[78%] max-md:w-[100%] h-full max-md:justify-center flex-wrap max-lg:w-[98%]">
                 {[
-                  { label: "Property Number", value: propertyDetails.property_number },
+                  { label: "Property Number", value: propertyDetails.property_id },
                   { label: "FIR Number", value: propertyDetails.fir_number },
                   { label: "Under Section", value: propertyDetails.under_section },
                   { label: "Description", value: propertyDetails.description },
                   { label: "Property Tag", value: propertyDetails.property_tag },
-                  { label: "Location", value: propertyDetails.location_of_property },
                   { label: "Rack Number", value: propertyDetails.rack_number },
                   { label: "Box Number", value: propertyDetails.box_number },
                   { label: "Court Name", value: propertyDetails.name_of_court },
@@ -270,6 +272,28 @@ export default function Page({ params }: PageProps) {
             </div>
           </div>
         )}
+
+        {propertyDetails?.image_url && propertyDetails.image_url.length > 0 && (
+          <div className="mb-8 bg-white rounded-md p-4 shadow-sm w-full">
+            <h2 className="text-2xl font-semibold mb-4 text-center text-gray-700">Property Images</h2>
+            <div className="flex flex-wrap justify-center gap-4">
+              {propertyDetails.image_url.map((url, idx) => (
+                <div key={idx} className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
+                  <Image
+                    src={url}
+                    alt={`Property Image ${idx + 1}`}
+                    width={240}
+                    height={240}
+                    className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
+                    unoptimized // Optional: remove if using domains in next.config.js
+                  />
+
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         <div className="flex flex-col items-center">
           <h1 className="text-3xl font-bold text-blue-700 mb-2">Status Logs</h1>
@@ -333,12 +357,26 @@ export default function Page({ params }: PageProps) {
 
           {addingLogs && (
             <form ref={formRef} onSubmit={handleSubmit} className="mt-4 w-full flex flex-wrap gap-4">
+
+              <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
+                <label htmlFor="status" className="font-medium">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  required
+                  className="border p-2 rounded-sm"
+                >
+                  <option value="Entry">Entry of item</option>
+                  <option value="Departure">Departure of item</option>
+                </select>
+              </div>
               {[
-                { name: "status", label: "Status", placeholder: "Eg. In Forensics", required: true },
                 { name: "status_remarks", label: "Remarks", placeholder: "Optional remarks", required: false },
                 { name: "handling_officer", label: "Handling Officer", placeholder: "Officer name", required: true },
                 { name: "updated_by", label: "Updated By", placeholder: "Username", required: true },
-                { name: "location", label: "Location", placeholder: "Eg. Forensics Lab Rajnandgao", required: true },
+                // { name: "location", label: "Location", placeholder: "Eg. Forensics Lab Rajnandgao", required: true },
               ].map((field) => (
                 <div key={field.name} className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
                   <label htmlFor={field.name} className="font-medium">
@@ -353,6 +391,7 @@ export default function Page({ params }: PageProps) {
                     type="text"
                   />
                 </div>
+
               ))}
               <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
                 <label htmlFor="time_of_event" className="font-medium">
@@ -366,6 +405,55 @@ export default function Page({ params }: PageProps) {
                   className="border p-2 rounded-sm"
                 />
               </div>
+
+
+              <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
+                <label htmlFor="reason" className="font-medium">
+                  Reason
+                </label>
+
+                {reason === "Other" ? (
+                  <div className="flex justify-between">
+                    <input
+                      type="text"
+                      name="reason"
+                      id="reason"
+                      required
+                      value={customReason}
+                      onChange={(e) => setCustomReason(e.target.value)}
+                      className="border p-2 rounded-sm w-[80%]"
+                    />
+                    <button className="w-[15%] h-full bg-gray-50 hover:bg-gray-200 rounded-md" onClick={() => {
+                      setCustomReason("")
+                      setReason("FSL")
+                    }}>X</button>
+                  </div>
+                ) : (
+                  <select
+                    id="reason"
+                    name="reason"
+                    required
+                    value={reason}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      setReason(selected);
+                      if (selected === "Other") {
+                        setCustomReason("Other - ");
+                      }
+                    }}
+                    className="border p-2 rounded-sm"
+                  >
+                    <option value="FSL">FSL</option>
+                    <option value="Court Hearing">Court Hearing</option>
+                    <option value="Mulajhma">Mulajhma</option>
+                    <option value="Destruction">Destruction</option>
+                    <option value="Sutranama">Sutranama</option>
+                    <option value="Other">Other</option>
+                  </select>
+                )}
+              </div>
+
+
 
               <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
                 <label htmlFor="pdf-upload" className="font-medium">
