@@ -18,6 +18,7 @@ export default function Page() {
     name: "",
     role: "",
     thana: "",
+    created_at:"",
   })
   const [accessUpdate, setAccessUpdate] = useState({
     identifier: "", // email or phone
@@ -31,6 +32,105 @@ export default function Page() {
     newuserPhone: "",
     newuserThana: "",
   })
+  const [selectedThana, setSelectedThana] = useState("");
+  const [availableThanas, setAvailableThanas] = useState<string[]>([]);
+  const [rackInput, setRackInput] = useState("");
+  const [boxInput, setBoxInput] = useState("");
+
+
+  const handleRackGeneration = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const policeStation = user.role === "thana admin" ? user.thana : selectedThana;
+
+    if (!rackInput.trim() || !policeStation) {
+      toast.error("Please fill the rack name and select thana.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("thana_rack_box_table")
+      .select("racks")
+      .eq("thana", policeStation)
+      .single();
+
+    if (error || !data) {
+      console.error("Fetch rack error:", error?.message);
+      toast.error("Thana not found.");
+      return;
+    }
+
+    const normalizedInput = rackInput.trim().toLowerCase();
+    const existingRacks = (data.racks || []).map((r: string) => r.trim().toLowerCase());
+
+    if (existingRacks.includes(normalizedInput)) {
+      toast.error("Rack already exists");
+      return;
+    }
+
+    const updatedRacks = [...data.racks, rackInput.trim()];
+
+    const { error: updateError } = await supabase
+      .from("thana_rack_box_table")
+      .update({ racks: updatedRacks })
+      .eq("thana", policeStation);
+
+    if (updateError) {
+      console.error("Update rack error:", updateError.message);
+      toast.error("Failed to update rack");
+    } else {
+      toast.success("Rack added successfully");
+      setRackInput("");
+    }
+  };
+
+  const handleBoxGeneration = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const policeStation = user.role === "thana admin" ? user.thana : selectedThana;
+
+    if (!boxInput.trim() || !policeStation) {
+      toast.error("Please fill the box name and select thana.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("thana_rack_box_table")
+      .select("boxes")
+      .eq("thana", policeStation)
+      .single();
+
+    if (error || !data) {
+      console.error("Fetch box error:", error?.message);
+      toast.error("Thana not found.");
+      return;
+    }
+
+    const normalizedInput = boxInput.trim().toLowerCase();
+    const existingBoxes = (data.boxes || []).map((b: string) => b.trim().toLowerCase());
+
+    if (existingBoxes.includes(normalizedInput)) {
+      toast.error("Box already exists");
+      return;
+    }
+
+    const updatedBoxes = [...data.boxes, boxInput.trim()];
+
+    const { error: updateError } = await supabase
+      .from("thana_rack_box_table")
+      .update({ boxes: updatedBoxes })
+      .eq("thana", policeStation);
+
+    if (updateError) {
+      console.error("Update box error:", updateError.message);
+      toast.error("Failed to update box");
+    } else {
+      toast.success("Box added successfully");
+      setBoxInput("");
+    }
+  };
+
+
 
   // getting token from data for  updated by and role allocation
   useEffect(() => {
@@ -43,6 +143,18 @@ export default function Page() {
         console.log("Auth API response:", res.data);
 
         const userData = res.data.user;
+        if (res.data.user?.role === "admin" || res.data.user?.role === "super admin") {
+          const { data, error } = await supabase
+            .from("thana_rack_box_table")
+            .select("thana");
+
+          if (error) {
+            console.error("Error fetching thanas:", error);
+          } else if (data) {
+            const uniqueThanas = [...new Set(data.map((d) => d.thana))];
+            setAvailableThanas(uniqueThanas);
+          }
+        }
 
 
         if (userData) {
@@ -53,6 +165,7 @@ export default function Page() {
             name: userData.name,
             role: userData.role,
             thana: userData.thana,
+            created_at:userData.created_at,
           };
 
           setUser(User);
@@ -67,6 +180,8 @@ export default function Page() {
       } catch (err) {
         console.error("Auth check failed:", err);
       }
+
+
     }
 
     checkAuth();
@@ -76,9 +191,11 @@ export default function Page() {
   const handleQRGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
     setQRLoading(true)
+    const policeStation = user.role === "thana admin" ? user.thana : selectedThana;
 
     const entries = Array.from({ length: 10 }, () => ({
       qr_id: `https://e-malkhana-smoky.vercel.app/?qrId=${uuidv4()}`,
+      police_station: policeStation
     }))
 
     const { data, error } = await supabase
@@ -108,7 +225,7 @@ export default function Page() {
     try {
       // Step 1: Check for existing email or phone
       const { data: existingUsers, error: checkError } = await supabase
-        .from("users")
+        .from("officer_table")
         .select("*")
         .or(`email_id.eq.${newuserEmail},phone.eq.${newuserPhone}`);
 
@@ -156,6 +273,8 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 space-y-8">
+
+
       {/* Admin Profile Section */}
       <div className="w-full bg-white shadow-md rounded-xl p-6 flex flex-col md:flex-row items-start gap-6">
         {/* Admin Image */}
@@ -172,23 +291,23 @@ export default function Page() {
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-700">
           <div>
             <p className="font-semibold text-gray-900">Name</p>
-            <p>Admin Name</p>
+            <p>{user.name}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Email</p>
-            <p>admin@example.com</p>
+            <p>{user.email}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Role</p>
-            <p>Super Admin</p>
+            <p>{user.role}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Status</p>
-            <p>Active</p>
+            <p></p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Joined</p>
-            <p>Jan 2024</p>
+            <p>{user.created_at}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Last Login</p>
@@ -201,7 +320,7 @@ export default function Page() {
       {
         ["admin", "thana admin", "super admin"].includes(user.role) ? (
           // all forms div
-          <div className="w-full flex flex-col md:flex-row gap-6">
+          <div className="w-full flex flex-col md:flex-row gap-6 flex-wrap">
 
             {/* Create New User */}
             <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
@@ -254,7 +373,7 @@ export default function Page() {
 
 
 
-                <button className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600"
+                <button className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition-all"
                   onClick={(e) => handleUserGeneration(e)}
                 >
                   Create User
@@ -357,7 +476,7 @@ export default function Page() {
                 </select>
                 <button
                   type="submit"
-                  className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600"
+                  className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
                 >
                   Update Access
                 </button>
@@ -373,28 +492,110 @@ export default function Page() {
                   <label htmlFor="thana" className="text-sm text-gray-600 mb-1">
                     Select Police Thana
                   </label>
-                  <select
-                    id="thana"
-                    className="w-full px-4 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    onChange={(e) => { console.log(e.target.value) }}
-                    defaultValue={"Police Thana 1"}
-                  >
-                    <option>Police Thana 1</option>
-                    <option>Police Thana 2</option>
-                    <option>Police Thana 3</option>
-                    <option>Police Thana 4</option>
-                  </select>
+                  <div>
+                    {user.role === "admin" || user.role === "super admin" ? (
+                      <select
+                        value={selectedThana}
+                        onChange={(e) => setSelectedThana(e.target.value)}
+                        className="border border-gray-300 rounded p-2 w-full"
+                      >
+                        <option value="">Select Police Station</option>
+                        {availableThanas.map((thana) => (
+                          <option key={thana} value={thana}>
+                            {thana}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700 transition-all">
+                        {user.thana}
+                      </div>
+                    )}
+                  </div>
+
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-green-600 text-white py-2 rounded-md font-medium hover:bg-green-700 transition duration-200"
+                  className="w-full bg-green-500 text-white py-2 rounded-md font-medium hover:bg-green-700 transition-all duration-200"
                 >
                   Generate QR IDs
                 </button>
               </form>}
 
             </div>
+
+            <div className='flex gap-6'>
+              {/* Add Rack */}
+              <form onSubmit={handleRackGeneration} className='flex-1 bg-white shadow-md rounded-xl p-6 space-y-4'>
+                <h2 className="text-lg font-semibold text-gray-800 text-center">Add a Rack</h2>
+
+                {(user.role === "admin" || user.role === "super admin") ? (
+                  <select
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    value={selectedThana}
+                    onChange={(e) => setSelectedThana(e.target.value)}
+                  >
+                    <option value="">Select Police Station</option>
+                    {availableThanas.map((thana) => (
+                      <option key={thana} value={thana}>{thana}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
+                    {user.thana}
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  placeholder="Rack Name"
+                  className="w-full px-4 py-2 border rounded-md border-gray-300"
+                  value={rackInput}
+                  onChange={(e) => setRackInput(e.target.value)}
+                />
+
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all">
+                  Add Rack
+                </button>
+              </form>
+
+              {/* Add Box */}
+              <form onSubmit={handleBoxGeneration} className='flex-1 bg-white shadow-md rounded-xl p-6 space-y-4'>
+                <h2 className="text-lg font-semibold text-gray-800 text-center">Add a Box</h2>
+
+                {(user.role === "admin" || user.role === "super admin") ? (
+                  <select
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    value={selectedThana}
+                    onChange={(e) => setSelectedThana(e.target.value)}
+                  >
+                    <option value="">Select Police Station</option>
+                    {availableThanas.map((thana) => (
+                      <option key={thana} value={thana}>{thana}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
+                    {user.thana}
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  placeholder="Box Name"
+                  className="w-full px-4 py-2 border rounded-md border-gray-300"
+                  value={boxInput}
+                  onChange={(e) => setBoxInput(e.target.value)}
+                />
+
+                <button type="submit" className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition-all">
+                  Add Box
+                </button>
+              </form>
+              
+            </div>
+
 
           </div>
         ) : (

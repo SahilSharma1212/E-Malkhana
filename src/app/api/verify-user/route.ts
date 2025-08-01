@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase
       .from("officer_table")
-      .select("officer_name, role, thana")
+      .select("officer_name, role, thana, created_at")
       .ilike("email_id", email)
       .maybeSingle();
 
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       role: data.role,
       thana: data.thana,
       email,
+      created_at:data.created_at,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
