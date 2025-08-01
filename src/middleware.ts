@@ -1,45 +1,90 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import supabase from "@/supabaseConfig/supabaseConnect";
+import { jwtVerify } from "jose";
+import supabase from "@/config/supabaseConnect"; // ✅ your Supabase connection
+
+const secret = new TextEncoder().encode(process.env.JWT_SECRET); // ✅ use .env secret
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-  const fullUrl = request.nextUrl.href;
+  const token = request.cookies.get("token")?.value;
+  const isLoginPage = request.nextUrl.pathname === "/sign-in";
+  const isHomePage = request.nextUrl.pathname === "/";
+  const fullUrl = request.url; // Get the entire URL
 
-  console.log("🛂 Middleware triggered");
-  console.log("📍 Pathname:", pathname);
-  console.log("🔗 Full URL:", fullUrl);
+  console.log("🍪 Token from cookie:", token);
 
-  if (pathname === "/") {
-    console.log("✅ Home page detected. Proceeding to check Supabase...");
+  // Step 1 & 3: No token handling
+  if (!token) {
+    if (isLoginPage) return NextResponse.next();
+    return NextResponse.redirect(new URL("/sign-in", request.url));
+  }
 
-    const { data, error } = await supabase
-      .from("property_table")
-      .select("property_id")
-      .eq("qr_id", fullUrl)
+  // Step 2: Token exists
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    console.log("🧾 JWT payload after decode:", payload);
+
+    // 🔍 Supabase check — validate email is legit
+    const { data: officer, error } = await supabase
+      .from("officer_table")
+      .select("officer_name, role, thana, email_id")
+      .eq("email_id", payload.email)
       .single();
 
-    if (error) {
-      console.error("❌ Supabase error:", error);
+    if (!officer || error) {
+      console.error("🚫 Supabase verification failed:", error || "Officer not found");
+      return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    if (!data || !data.property_id) {
-      console.log("⚠️ No matching property_id found. Continuing to home page.");
+    console.log("✅ Officer verified in DB:", officer);
+
+    // Redirect from sign-in to admin if token exists
+    if (isLoginPage) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+
+    // Step 4: Special logic for homepage
+    if (isHomePage) {
+      // Query property_table for qr_id matching the full URL
+      const { data: property, error: propertyError } = await supabase
+        .from("property_table")
+        .select("qr_id, property_id")
+        .eq("qr_id", fullUrl)
+        .single();
+
+      if (propertyError) {
+        console.error("🚫 Property table query failed:", propertyError);
+        // Continue to homepage if query fails (optional: could redirect to error page)
+        return NextResponse.next();
+      }
+
+      if (property) {
+        // Check if property_id exists
+        if (property.property_id) {
+          // Redirect to /search-property/{property_id}
+          return NextResponse.redirect(
+            new URL(`/search-property/${property.property_id}`, request.url)
+          );
+        }
+        // If property_id is empty, stay on homepage
+        return NextResponse.next();
+      }
+      // If no matching qr_id, stay on homepage
       return NextResponse.next();
     }
 
-    console.log("🏠 Found property_id:", data.property_id);
-    console.log(`➡️ Redirecting to /search-property/${data.property_id}`);
+    // Allow access to all other routes
+    return NextResponse.next();
 
-    return NextResponse.redirect(
-      new URL(`/search-property/${data.property_id}`, request.url)
-    );
+  } catch (err) {
+    console.error("❌ Invalid token. Redirecting to /sign-in.", err);
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   }
-
-  console.log("🚫 Not home page. Skipping middleware logic.");
-  return NextResponse.next();
 }
 
 export const config = {
-  matcher: '/',
+  matcher: [
+    // apply only to pages, not API routes
+    "/((?!api|_next|favicon.ico|.*\\..*).*)",
+  ],
 };

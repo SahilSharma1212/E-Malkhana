@@ -1,7 +1,7 @@
 "use client";
 import { ChevronLeft, Logs, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import supabase from '@/supabaseConfig/supabaseConnect';
+import supabase from '@/config/supabaseConnect';
 import { useRouter } from 'next/navigation';
 
 interface DataInterface {

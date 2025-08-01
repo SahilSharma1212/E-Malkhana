@@ -1,7 +1,7 @@
 'use client';
 
 import PropertyForm from '@/components/PropertyForm';
-import supabase from '@/supabaseConfig/supabaseConnect';
+import supabase from '@/config/supabaseConnect';
 import { QrCode } from 'lucide-react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
