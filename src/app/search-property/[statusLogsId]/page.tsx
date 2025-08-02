@@ -67,9 +67,11 @@ export default function Page({ params }: PageProps) {
     role: "",
     thana: "",
   })
+  console.log(statusLogsId)
 
   // setting property details and log details
   useEffect(() => {
+    
     const fetchData = async () => {
       try {
         setLoading(true);
