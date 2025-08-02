@@ -56,12 +56,12 @@ export default function Page() {
           <div className='flex items-center justify-center gap-3 mt-5 max-sm:flex-col w-full'>
             <button className='bg-blue-500 text-white px-3 py-1 hover:bg-blue-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
               <Link href="/search-property">Search</Link>
-              <Search strokeWidth={1}/>
+              <Search strokeWidth={1} />
             </button>
 
             <button className='bg-blue-500 text-white px-3 py-1 hover:bg-blue-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
               <Link href="/admin">Admin</Link>
-              <User strokeWidth={1}/>
+              <User strokeWidth={1} />
             </button>
           </div>
 

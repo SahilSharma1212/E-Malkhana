@@ -5,8 +5,9 @@ import Image from 'next/image';
 import supabase from '@/config/supabaseConnect';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import { Ban, Loader2, Logs } from 'lucide-react';
 import axios from 'axios';
+import Link from 'next/link';
 
 
 
@@ -19,7 +20,7 @@ export default function Page() {
     role: "",
     thana: "",
     created_at: "",
-    phone:""
+    phone: ""
   })
   const [accessUpdate, setAccessUpdate] = useState({
     identifier: "", // email or phone
@@ -37,6 +38,54 @@ export default function Page() {
   const [availableThanas, setAvailableThanas] = useState<string[]>([]);
   const [rackInput, setRackInput] = useState("");
   const [boxInput, setBoxInput] = useState("");
+
+
+
+  const [propertyDetails, setPropertyDetails] = useState<{
+    property_id: string,
+    name_of_io: string,
+    created_at: string,
+    date_of_seizure: string,
+    category_of_offence: string,
+    type_of_seizure: string,
+    fir_number: string,
+    place_of_seizure: string,
+    rack_number: string,
+    box_number: string,
+    serial_number_from_register: string
+  }[]>([])
+
+  useEffect(() => {
+
+    const handleViewData = async () => {
+      console.log("Display clicked");
+      if (!user || !user.thana) return; // ✅ Wait until thana is ready
+
+      try {
+        console.log("Current thana:", user.thana);
+
+        const { data, error } = await supabase
+          .from("property_table")
+          .select("property_id,name_of_io,created_at,date_of_seizure,category_of_offence,type_of_seizure,fir_number,place_of_seizure,rack_number,box_number,serial_number_from_register")
+          .eq("police_station", user.thana)
+          .neq("property_id", "")
+
+        console.log("Fetched Data:", data);
+        console.log("Error:", error);
+
+        if (!data || data.length === 0) {
+          toast.error("No property items found.");
+          return;
+        }
+
+        setPropertyDetails(data);
+      } catch (err) {
+        console.log("Unexpected Error:", err);
+      }
+    };
+
+    handleViewData()
+  }, [user])
 
 
   const handleRackGeneration = async (e: React.FormEvent) => {
@@ -167,7 +216,7 @@ export default function Page() {
             role: userData.role,
             thana: userData.thana,
             created_at: userData.created_at,
-            phone:userData.phone,
+            phone: userData.phone,
           };
 
           setUser(User);
@@ -197,12 +246,13 @@ export default function Page() {
 
     const entries = Array.from({ length: 10 }, () => ({
       qr_id: `https://e-malkhana-smoky.vercel.app/?qrId=${uuidv4()}`,
-      police_station: policeStation
+      police_station: policeStation,
+      qr_generated_by: user.name
     }))
 
     const { data, error } = await supabase
       .from("property_table")
-      .insert(entries)
+      .insert({ entries })
 
     if (error) {
       console.error('Insert failed:', error.message)
@@ -317,6 +367,58 @@ export default function Page() {
           </div>
         </div>
       </div>
+      {/* table section */}
+      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Seized Property Items : {user.thana}</h2>
+        <table className="min-w-full border text-sm text-left text-gray-700">
+          <thead className="bg-gray-100 text-xs uppercase text-gray-600">
+            <tr>
+              <th className="px-4 py-2">Property ID</th>
+              <th className="px-4 py-2">Name of IO</th>
+              <th className="px-4 py-2">Created At</th>
+              <th className="px-4 py-2">Date of Seizure</th>
+              <th className="px-4 py-2">Category</th>
+              <th className="px-4 py-2">Type</th>
+              <th className="px-4 py-2">FIR Number</th>
+              <th className="px-4 py-2">Place</th>
+              <th className="px-4 py-2">Rack</th>
+              <th className="px-4 py-2">Box</th>
+              <th className="px-4 py-2">Serial No.</th>
+              <th className='px-4 py-2'>Logs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {propertyDetails.map((item, index) => (
+              <tr
+                key={index}
+                className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+              >
+                <td className="px-4 py-2">{item.property_id}</td>
+                <td className="px-4 py-2">{item.name_of_io}</td>
+                <td className="px-4 py-2">{new Date(item.created_at).toLocaleDateString()}</td>
+                <td className="px-4 py-2">{item.date_of_seizure}</td>
+                <td className="px-4 py-2">{item.category_of_offence}</td>
+                <td className="px-4 py-2">{item.type_of_seizure}</td>
+                <td className="px-4 py-2">{item.fir_number}</td>
+                <td className="px-4 py-2">{item.place_of_seizure}</td>
+                <td className="px-4 py-2">{item.rack_number}</td>
+                <td className="px-4 py-2">{item.box_number}</td>
+                <td className="px-4 py-2">{item.serial_number_from_register}</td>
+                <td className=''>
+                  <button
+                    className='bg-white text-blue-500 p-1 rounded-b-xs hover:bg-blue-100 flex items-center gap-1 border border-blue-500 rounded-sm'>
+                    <Link href={`/search-property/${item.property_id}`}>
+                      <Logs className='text-blue-500' />
+                    </Link>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+
 
 
       {
@@ -386,106 +488,115 @@ export default function Page() {
               </div>
 
               {/* Change User Access */}
-              <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Change User Access</h2>
-                <form
-                  className="space-y-3"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
 
-                    if (!accessUpdate.identifier || !accessUpdate.newRole) {
-                      toast.error("Please fill all fields");
-                      return;
-                    }
+              {(user.role == "admin" || user.role == "super admin") ? (
+                <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-800">Change User Access</h2>
+                  <form
+                    className="space-y-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
 
-                    // Prevent lower roles from changing access beyond their permission
-                    if (
-                      user.role === "admin" &&
-                      (accessUpdate.newRole === "admin" || accessUpdate.newRole === "super admin")
-                    ) {
-                      toast.error("You are not authorized to assign this role.");
-                      return;
-                    }
+                      if (!accessUpdate.identifier || !accessUpdate.newRole) {
+                        toast.error("Please fill all fields");
+                        return;
+                      }
 
-                    if (user.role === "thana admin") {
-                      toast.error("You are not allowed to change access.");
-                      return;
-                    }
+                      // Prevent lower roles from changing access beyond their permission
+                      if (
+                        user.role === "admin" &&
+                        (accessUpdate.newRole === "admin" || accessUpdate.newRole === "super admin")
+                      ) {
+                        toast.error("You are not authorized to assign this role.");
+                        return;
+                      }
 
-                    const { data: existing, error: fetchError } = await supabase
-                      .from("officer_table")
-                      .select("*")
-                      .or(`email_id.eq.${accessUpdate.identifier},phone.eq.${accessUpdate.identifier}`);
+                      if (user.role === "thana admin") {
+                        toast.error("You are not allowed to change access.");
+                        return;
+                      }
 
-                    if (fetchError) {
-                      console.error("Fetch error:", fetchError.message);
-                      toast.error("Could not find user");
-                      return;
-                    }
+                      const { data: existing, error: fetchError } = await supabase
+                        .from("officer_table")
+                        .select("*")
+                        .or(`email_id.eq.${accessUpdate.identifier},phone.eq.${accessUpdate.identifier}`);
 
-                    if (!existing || existing.length === 0) {
-                      toast.error("No user found with that email or phone.");
-                      return;
-                    }
+                      if (fetchError) {
+                        console.error("Fetch error:", fetchError.message);
+                        toast.error("Could not find user");
+                        return;
+                      }
 
-                    const userToUpdate = existing[0];
+                      if (!existing || existing.length === 0) {
+                        toast.error("No user found with that email or phone.");
+                        return;
+                      }
 
-                    const { error: updateError } = await supabase
-                      .from("users")
-                      .update({ role: accessUpdate.newRole })
-                      .eq("id", userToUpdate.id);
+                      const userToUpdate = existing[0];
 
-                    if (updateError) {
-                      console.error("Update error:", updateError.message);
-                      toast.error("Role update failed.");
-                    } else {
-                      toast.success("User access updated.");
-                      setAccessUpdate({ identifier: "", newRole: "" });
-                    }
-                  }}
-                >
-                  <input
-                    type="text"
-                    placeholder="User Email / Phone no."
-                    value={accessUpdate.identifier}
-                    onChange={(e) =>
-                      setAccessUpdate({ ...accessUpdate, identifier: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  />
-                  <select
-                    value={accessUpdate.newRole}
-                    onChange={(e) =>
-                      setAccessUpdate({ ...accessUpdate, newRole: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                      const { error: updateError } = await supabase
+                        .from("users")
+                        .update({ role: accessUpdate.newRole })
+                        .eq("id", userToUpdate.id);
+
+                      if (updateError) {
+                        console.error("Update error:", updateError.message);
+                        toast.error("Role update failed.");
+                      } else {
+                        toast.success("User access updated.");
+                        setAccessUpdate({ identifier: "", newRole: "" });
+                      }
+                    }}
                   >
-                    <option value="">Select New Role</option>
+                    <input
+                      type="text"
+                      placeholder="User Email / Phone no."
+                      value={accessUpdate.identifier}
+                      onChange={(e) =>
+                        setAccessUpdate({ ...accessUpdate, identifier: e.target.value })
+                      }
+                      className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    />
+                    <select
+                      value={accessUpdate.newRole}
+                      onChange={(e) =>
+                        setAccessUpdate({ ...accessUpdate, newRole: e.target.value })
+                      }
+                      className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    >
+                      <option value="">Select New Role</option>
 
-                    {/* Viewer is available to all roles above thana admin */}
-                    <option value="viewer">Viewer</option>
+                      {/* Viewer is available to all roles above thana admin */}
+                      <option value="viewer">Viewer</option>
 
-                    {/* Admins and super admins can assign thana admin */}
-                    {(user.role === "admin" || user.role === "super admin") && (
-                      <option value="thana admin">Thana Admin</option>
-                    )}
+                      {/* Admins and super admins can assign thana admin */}
+                      {(user.role === "admin" || user.role === "super admin") && (
+                        <option value="thana admin">Thana Admin</option>
+                      )}
 
-                    {/* Only super admin can assign admin or super admin */}
-                    {user.role === "super admin" && (
-                      <>
-                        <option value="admin">Admin</option>
-                        <option value="super admin">Super Admin</option>
-                      </>
-                    )}
-                  </select>
-                  <button
-                    type="submit"
-                    className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
-                  >
-                    Update Access
-                  </button>
-                </form>
-              </div>
+                      {/* Only super admin can assign admin or super admin */}
+                      {user.role === "super admin" && (
+                        <>
+                          <option value="admin">Admin</option>
+                          <option value="super admin">Super Admin</option>
+                        </>
+                      )}
+                    </select>
+                    <button
+                      type="submit"
+                      className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
+                    >
+                      Update Access
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4 flex flex-col items-center justify-center">
+                  <Ban size={100} className='text-gray-500' />
+                  <p className='text-center text-base'>Can{"'"}t change access as a Thana Admin, but you can create a viewer.</p>
+                </div>
+              )
+              }
 
 
               {/* Generate QR IDs */}

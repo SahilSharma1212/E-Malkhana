@@ -26,18 +26,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <Suspense fallback={<></>}>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#e6f0ff] min-h-screen overflow-x-hidden`}
-        >
-          {/* ✅ Navbar */}
-          <Navbar />
 
-          {/* Page Content */}
-          <main>{children}</main>
-        </body>
-      </html>
-    </Suspense>
+    <html lang="en">
+
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#e6f0ff] min-h-screen overflow-x-hidden`}
+      >
+        <Suspense>
+        {/* ✅ Navbar */}
+        <Navbar />
+
+        {/* Page Content */}
+        <main>{children}</main>
+
+      </Suspense>
+    </body>
+        
+      </html >
   );
 }

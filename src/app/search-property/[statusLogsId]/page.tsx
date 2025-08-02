@@ -71,48 +71,91 @@ export default function Page({ params }: PageProps) {
 
   // Fetch property details and status logs
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const init = async () => {
+    try {
+      setLoading(true);
 
-        // Fetch Property Details
-        const { data: property, error: propertyError } = await supabase
-          .from("property_table")
-          .select("*")
-          .eq("property_id", propertyId)
-          .single();
+      // 1. Get user info
+      const res = await axios.get('/api/get-token', { withCredentials: true });
+      const userData = res.data.user;
 
-        if (propertyError) {
-          console.error("❌ Property fetch error:", propertyError.message);
-          toast.error("Error Fetching Property Details");
-          return;
-        }
-        setPropertyDetails(property);
-
-        // Fetch Status Logs
-        const { data: logs, error: logsError } = await supabase
-          .from("status_logs_table")
-          .select("*")
-          .eq("property_id", propertyId);
-
-        if (logsError) {
-          console.error("❌ Logs fetch error:", logsError.message);
-          toast.error("Error Fetching Logs");
-          return;
-        }
-        setStatusLogs(logs || []);
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        toast.error("An unexpected error occurred");
-      } finally {
+      if (!userData) {
+        setHasAccess(false);
         setLoading(false);
+        return;
       }
-    };
 
-    if (propertyId) {
-      fetchData();
+      const tempUser = {
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        thana: userData.thana,
+      };
+
+      setUser(tempUser);
+
+      // 2. Fetch property first to check which police station it belongs to
+      const { data: property, error: propertyError } = await supabase
+        .from("property_table")
+        .select("*")
+        .eq("property_id", propertyId)
+        .single();
+
+      if (propertyError) {
+        console.error("❌ Property fetch error:", propertyError.message);
+        toast.error("Error Fetching Property Details");
+        setHasAccess(false);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Check access logic
+      const sameThana = property.police_station === tempUser.thana;
+
+      let allowed = false;
+      if (["admin", "super admin"].includes(tempUser.role)) {
+        allowed = true;
+      } else if (tempUser.role === "thana admin" && sameThana) {
+        allowed = true;
+      } else if (tempUser.role === "viewer" && sameThana) {
+        allowed = true;
+      }
+
+      setHasAccess(allowed);
+
+      if (!allowed) {
+        setLoading(false);
+        return;
+      }
+
+      // 4. Only fetch logs if allowed
+      setPropertyDetails(property);
+
+      const { data: logs, error: logsError } = await supabase
+        .from("status_logs_table")
+        .select("*")
+        .eq("property_id", propertyId);
+
+      if (logsError) {
+        console.error("❌ Logs fetch error:", logsError.message);
+        toast.error("Error Fetching Logs");
+        return;
+      }
+
+      setStatusLogs(logs || []);
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
-  }, [propertyId]);
+  };
+
+  if (propertyId) {
+    init();
+  }
+}, [propertyId]);
+
 
   // Fetch user data and determine access
   useEffect(() => {
@@ -140,7 +183,7 @@ export default function Page({ params }: PageProps) {
             setHasAccess(propertyDetails?.police_station === userData.thana);
           } else if (userData.role === "thana admin") {
             // Thana admin can view all properties
-            setHasAccess(true);
+            setHasAccess(propertyDetails?.police_station === userData.thana);
           } else if (["admin", "super admin"].includes(userData.role)) {
             // Admin and super admin have full access
             setHasAccess(true);

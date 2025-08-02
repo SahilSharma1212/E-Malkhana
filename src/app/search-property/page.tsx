@@ -89,7 +89,7 @@ export default function Page() {
       .neq("property_id", "");
 
     // Apply access control if role is 'viewer'
-    if (userData.role === "viewer") {
+    if (userData.role === "viewer" || userData.role === "thana admin") {
       query = query.eq("police_station", userData.thana);
     }
 
@@ -166,7 +166,7 @@ export default function Page() {
   }
 
   // 🔐 Access control: restrict to viewer's thana
-  if (userData.role === "viewer") {
+  if (userData.role === "viewer" || userData.role === "thana admin") {
     query = query.eq("police_station", userData.thana);
   }
 

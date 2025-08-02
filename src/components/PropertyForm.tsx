@@ -65,7 +65,7 @@ export default function PropertyForm() {
     caseStatus: "",
     rackNumber: "",
     boxNumber: "",
-    remarks: "s",
+    remarks: "",
     policeStation: user.thana,
     placeOfSeizure: "police station",
     registerSerialNumber: "",
@@ -73,6 +73,8 @@ export default function PropertyForm() {
   });
 
   let PropId: string
+
+
   // Cleanup preview URLs to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -81,18 +83,15 @@ export default function PropertyForm() {
   }, [previewUrls]);
 
   // Fetch user data from token
+  // Fetch user data and thana data
   useEffect(() => {
-    async function checkAuth() {
+    async function fetchInitialData() {
+      // Fetch user data
       try {
-        const res = await axios.get("/api/get-token", {
-          withCredentials: true,
-        });
-
+        const res = await axios.get("/api/get-token", { withCredentials: true });
         if (res.data.authenticated) {
           const { name, email, role, thana } = res.data.user;
           setUser({ name, email, role, thana });
-          console.log("✅ Set user:", { name, email, role, thana });
-          // Set policeStation for thana admin
           if (role === "thana admin") {
             setFormData(prev => ({ ...prev, policeStation: thana }));
           }
@@ -100,59 +99,125 @@ export default function PropertyForm() {
       } catch (error) {
         console.error("❌ Auth error:", error);
       }
+
+      // Fetch thana data for admin/super admin
+      if (user.role === "admin" || user.role === "super admin") {
+        const { data, error } = await supabase
+          .from("thana_rack_box_table")
+          .select("thana, racks, boxes");
+        if (error) {
+          console.error("Error fetching thana data:", error.message);
+          toast.error("Failed to load thana data");
+          return;
+        }
+        setThanaData(data);
+        const uniqueThanas = [...new Set(data.map((item) => item.thana))];
+        setThanas(uniqueThanas);
+
+        // Set default policeStation for admin/super admin if not set
+        if (data.length > 0 && !formData.policeStation) {
+          setFormData(prev => ({ ...prev, policeStation: data[0].thana }));
+        }
+      }
     }
 
-    checkAuth();
-  }, []);
+    fetchInitialData();
+  }, [user.role]);
 
-  // Fetch thanas, racks, and boxes on initial load for admin and super admin
+  // Fetch user data and thana data
   useEffect(() => {
-    const fetchThanaData = async () => {
-      if (user.role !== "admin" && user.role !== "super admin") return;
-
-      const { data, error } = await supabase
-        .from("thana_rack_box_table")
-        .select("thana, racks, boxes");
-
-      if (error) {
-        console.error("Error fetching thana data:", error.message);
-        toast.error("Failed to load thana data");
-        return;
+    async function fetchInitialData() {
+      // Fetch user data
+      try {
+        const res = await axios.get("/api/get-token", { withCredentials: true });
+        if (res.data.authenticated) {
+          const { name, email, role, thana } = res.data.user;
+          setUser({ name, email, role, thana });
+          if (role === "thana admin" && thana) {
+            setFormData(prev => ({ ...prev, policeStation: thana }));
+          }
+        } else {
+          toast.error("User not authenticated");
+        }
+      } catch (error) {
+        console.error("❌ Auth error:", error);
+        toast.error("Failed to authenticate user");
       }
 
-      setThanaData(data);
-      const uniqueThanas = [...new Set(data.map((item) => item.thana))];
-      setThanas(uniqueThanas);
-    };
+      // Fetch thana data
+      try {
+        const { data, error } = await supabase
+          .from("thana_rack_box_table")
+          .select("thana, racks, boxes");
+        if (error) {
+          console.error("Error fetching thana data:", error.message);
+          toast.error("Failed to load thana data");
+          return;
+        }
+        setThanaData(data);
+        const uniqueThanas = [...new Set(data.map((item) => item.thana))];
+        setThanas(uniqueThanas);
 
-    if (user.role) {
-      fetchThanaData();
+        // Set default policeStation for admin/super admin
+        if ((user.role === "admin" || user.role === "super admin") && data.length > 0 && !formData.policeStation) {
+          setFormData(prev => ({ ...prev, policeStation: data[0].thana }));
+        }
+      } catch (error) {
+        console.error("Error fetching thana data:", error);
+        toast.error("Failed to load thana data");
+      }
     }
-  }, [user.role]);
+
+    fetchInitialData();
+  }, [user.role, formData.policeStation]); // Include formData.policeStation to handle updates
 
   // Update racks and boxes based on selected police station
   useEffect(() => {
-    const selectedThana = user.role === "thana admin" ? user.thana : formData.policeStation;
-    if (!selectedThana) {
-      setRacks([]);
-      setBoxes([]);
-      return;
-    }
+    const fetchRacksAndBoxes = async () => {
+      console.log("Fetching racks and boxes for policeStation:", formData.policeStation);
+      console.log("Thana data:", thanaData);
 
-    const selectedData = thanaData.find(item => item.thana === selectedThana);
-    if (selectedData) {
-      setRacks(selectedData.racks || []);
-      setBoxes(selectedData.boxes || []);
-      setFormData((prev) => ({
+      if (!formData.policeStation || thanaData.length === 0) {
+        console.log("Skipping fetch: policeStation or thanaData not available");
+        setRacks([]);
+        setBoxes([]);
+        setFormData(prev => ({ ...prev, rackNumber: "", boxNumber: "" }));
+        return;
+      }
+
+      const selected = thanaData.find(item => item.thana === formData.policeStation);
+      if (!selected) {
+        console.log("No matching thana found for:", formData.policeStation);
+        setRacks([]);
+        setBoxes([]);
+        setFormData(prev => ({ ...prev, rackNumber: "", boxNumber: "" }));
+        toast.error("No racks or boxes available for the selected police station");
+        return;
+      }
+
+      if (!selected.racks || !selected.boxes || selected.racks.length === 0 || selected.boxes.length === 0) {
+        console.log("Invalid racks or boxes data:", selected);
+        setRacks([]);
+        setBoxes([]);
+        setFormData(prev => ({ ...prev, rackNumber: "", boxNumber: "" }));
+        toast.error("No racks or boxes available for the selected police station");
+        return;
+      }
+
+      console.log("Setting racks:", selected.racks, "boxes:", selected.boxes);
+      setRacks(selected.racks);
+      setBoxes(selected.boxes);
+      setFormData(prev => ({
         ...prev,
-        rackNumber: (selectedData.racks && selectedData.racks[0]) || "",
-        boxNumber: (selectedData.boxes && selectedData.boxes[0]) || "",
+        rackNumber: selected.racks[0] || "",
+        boxNumber: selected.boxes[0] || "",
       }));
-    } else {
-      setRacks([]);
-      setBoxes([]);
-    }
-  }, [formData.policeStation, user.thana, user.role, thanaData]);
+    };
+
+    fetchRacksAndBoxes();
+  }, [formData.policeStation, thanaData, user.thana]);
+
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -291,7 +356,7 @@ export default function PropertyForm() {
       setUuid(newPropertyId); // Set uuid state immediately
 
       const finalDataToPush = {
-        
+
       }
 
       // Update existing row with qr_id
@@ -299,23 +364,23 @@ export default function PropertyForm() {
         .from("property_table")
         .update({
           property_id: newPropertyId.toLowerCase(),
-        name_of_court: formData.courtName.toLowerCase(),
-        fir_number: formData.firNumber.toLowerCase(),
-        category_of_offence: finalOffenceCategory.toLowerCase(),
-        under_section: formData.section.map((item) => item.toLowerCase()),
-        date_of_seizure: formData.seizureDate.toLowerCase(),
-        description: formData.description1.toLowerCase(),
-        name_of_io: formData.ioName.toLowerCase(),
-        case_status: formData.caseStatus.toLowerCase(),
-        rack_number: formData.rackNumber.toLowerCase(),
-        box_number: formData.boxNumber.toLowerCase(),
-        remarks: formData.remarks.toLowerCase(),
-        police_station: formData.policeStation.toLowerCase(),
-        image_url: imageUrls,
-        place_of_seizure: finalPlaceOfSeizure.toLowerCase(),
-        serial_number_from_register: formData.registerSerialNumber.toLowerCase(),
-        type_of_seizure: finalTypeOfSeizure.toLowerCase(),
-        updated_by: user.name.toLowerCase(),
+          name_of_court: formData.courtName.toLowerCase(),
+          fir_number: formData.firNumber.toLowerCase(),
+          category_of_offence: finalOffenceCategory.toLowerCase(),
+          under_section: formData.section.map((item) => item.toLowerCase()),
+          date_of_seizure: formData.seizureDate.toLowerCase(),
+          description: formData.description1.toLowerCase(),
+          name_of_io: formData.ioName.toLowerCase(),
+          case_status: formData.caseStatus.toLowerCase(),
+          rack_number: formData.rackNumber.toLowerCase(),
+          box_number: formData.boxNumber.toLowerCase(),
+          remarks: formData.remarks.toLowerCase(),
+          police_station: formData.policeStation.toLowerCase(),
+          image_url: imageUrls,
+          place_of_seizure: finalPlaceOfSeizure.toLowerCase(),
+          serial_number_from_register: formData.registerSerialNumber.toLowerCase(),
+          type_of_seizure: finalTypeOfSeizure.toLowerCase(),
+          updated_by: user.name.toLowerCase(),
         })
         .eq("qr_id", window.location.href);
 
@@ -436,7 +501,7 @@ export default function PropertyForm() {
 
                 {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 max-sm:w-70 font-semibold text-gray-700">Police Station:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 max-sm:w-70 font-semibold text-gray-700">Police Station:</label>
                   {user.role === "thana admin" ? (
                     <div className="w-58 h-10 text-black/75 rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-58 max-md:w-80 max-sm:w-full max-md:text-sm max-xl:text-sm max-sm:text-xs flex items-center bg-gray-200 cursor-not-allowed">{user.thana}</div>
                   ) : (
@@ -454,7 +519,7 @@ export default function PropertyForm() {
                   )}
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">Place Of Seizure:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Place Of Seizure:</label>
                   {placeOfSeizure === "Other" ? (
                     <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
                       <input
@@ -499,7 +564,7 @@ export default function PropertyForm() {
                   )}
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">Name of Court:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Name of Court:</label>
                   <input
                     name="courtName"
                     type="text"
@@ -510,7 +575,7 @@ export default function PropertyForm() {
                   />
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">Sno. from register:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Sno. from register:</label>
                   <input
                     name="registerSerialNumber"
                     type="text"
@@ -521,7 +586,7 @@ export default function PropertyForm() {
                   />
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">FIR Number:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">FIR Number:</label>
                   <input
                     name="firNumber"
                     type="text"
@@ -532,7 +597,7 @@ export default function PropertyForm() {
                   />
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">Category of Offence:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Category of Offence:</label>
                   {offenceCategory === "Other" ? (
                     <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
                       <input
@@ -579,7 +644,7 @@ export default function PropertyForm() {
                 </div>
                 <div className="flex flex-col gap-1 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <div className="flex flex-row items-center w-full">
-                    <label className="max-md:text-sm w-48 font-semibold text-gray-700">Under Section:</label>
+                    <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Under Section:</label>
                     <div className="w-100 h-10 text-black rounded-lg border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 flex items-center justify-between overflow-hidden">
                       <input
                         name="section"
@@ -631,7 +696,7 @@ export default function PropertyForm() {
                   </div>
                 </div>
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className="max-md:text-sm w-48 font-semibold text-gray-700">Date of Seizure:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Date of Seizure:</label>
                   <input
                     name="seizureDate"
                     type="date"
@@ -643,7 +708,7 @@ export default function PropertyForm() {
                 <div className="flex w-full gap-4 max-md:flex-col items-center">
                   <div className="flex items-start w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
                     <div className="flex items-start w-full">
-                      <label className="max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Description:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Description:</label>
                       <textarea
                         name="description1"
                         placeholder="Description of Property"
@@ -655,7 +720,7 @@ export default function PropertyForm() {
                   </div>
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                     <div className="flex items-center">
-                      <label className="max-md:text-sm w-48 font-semibold text-gray-700">Name of IO:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Name of IO:</label>
                       <input
                         name="ioName"
                         type="text"
@@ -666,7 +731,7 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="max-md:text-sm w-48 font-semibold text-gray-700">Case Status:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Case Status:</label>
                       <input
                         name="caseStatus"
                         type="text"
@@ -677,7 +742,7 @@ export default function PropertyForm() {
                       />
                     </div>
                     <div className="flex items-center">
-                      <label className="max-md:text-sm w-48 font-semibold text-gray-700">Type of Seizure:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Type of Seizure:</label>
                       {typeOfSeizure === "Other" ? (
                         <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
                           <input
@@ -724,42 +789,52 @@ export default function PropertyForm() {
                     </div>
                   </div>
                 </div>
-                <div className="flex w-full gap-4 max-md:flex-col items-center">
-                  <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                    <div className="flex items-center">
-                      <label className="max-md:text-sm w-48 font-semibold text-gray-700">Rack Number:</label>
+                {/* rack number and box number */}
+                <div className="flex w-full gap-4 max-md:flex-col  items-start px-5 max-sm:px-4">
+                  <div className="flex flex-col w-[48%] max-md:w-full h-full justify-between items-center gap-4">
+                    <div className="flex items-center w-full">
+                      <label className="max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-1/2">Rack Number:</label>
                       <select
                         name="rackNumber"
-                        className="text-input flex-1"
+                        className="w-100 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 max-sm:w-1/2"
                         value={formData.rackNumber}
-                        onChange={(e) => { handleChange(e); console.log(e.target.value) }}
+                        onChange={handleChange}
                       >
-                        {racks.map((rack, index) => (
-                          <option key={index} value={rack} className="text-black w-full">{rack}</option>
-                        ))}
+                        {racks.length === 0 ? (
+                          <option value="" disabled>No racks available</option>
+                        ) : (
+                          racks.map((rack, index) => (
+                            <option key={index} value={rack}>{rack}</option>
+                          ))
+                        )}
                       </select>
                     </div>
-                    <div className="flex items-center">
-                      <label className="max-md:text-sm w-48 font-semibold text-gray-700">Box Number:</label>
+                    <div className="flex items-center w-full">
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-1/2">Box Number:</label>
                       <select
                         name="boxNumber"
-                        className="text-input flex-1"
+                        className="w-100 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 max-sm:w-1/2"
                         value={formData.boxNumber}
-                        onChange={(e) => { handleChange(e); console.log(e.target.value) }}
+                        onChange={handleChange}
                       >
-                        {boxes.map((box, index) => (
-                          <option key={index} value={box} className="text-black w-full">{box}</option>
-                        ))}
+                        {boxes.length === 0 ? (
+                          <option value="" disabled>No boxes available</option>
+                        ) : (
+                          boxes.map((box, index) => (
+                            <option key={index} value={box}>{box}</option>
+                          ))
+                        )}
                       </select>
                     </div>
                   </div>
+
                   <div className="flex items-start justify-between gap-2 w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
-                    <div className="flex items-start w-full">
-                      <label className="max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Remarks:</label>
+                    <div className="flex items-start justify-between w-full">
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700 max-sm:w-[40%]">Remarks:</label>
                       <textarea
                         name="remarks"
                         placeholder="Remarks about Property"
-                        className="flex-1 h-35 w-48 rounded-md px-3 py-2 border border-gray-300 resize-none"
+                        className="flex-1 h-35 w-48 rounded-md px-3 py-2 border border-gray-300 resize-none max-sm:w-[50%]"
                         value={formData.remarks}
                         onChange={handleChange}
                       />
