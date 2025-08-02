@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     height: 130,
   },
   heading: {
-    fontSize: 18,
+    fontSize: 13,
     textAlign: "center",
     marginBottom: 20,
     fontWeight: "bold",
@@ -41,13 +41,13 @@ const styles = StyleSheet.create({
 const getQRImageUrl = (value: string) =>
   `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(value)}&size=150x150`;
 
-const QRCodePDF = ({ qrCodes, heading }: { qrCodes: string[], heading: string[] }) => {
+const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: string[], thana:string }) => {
   const pages = [];
   for (let i = 0; i < qrCodes.length; i += 6) {
     const chunk = qrCodes.slice(i, i + 6);
     pages.push(
       <PDFPage key={i} size="A4" style={styles.page}>
-        <Text style={styles.heading}>QR IDs from {heading[i]} to {heading[i + 6]}</Text>
+        <Text style={styles.heading}>QR ID: ({heading[i]} to {heading[i + 6]}) , Thana:{thana}</Text>
 
         <View style={styles.qrGrid}>
           {chunk.map((qr, idx) => (
@@ -317,7 +317,7 @@ export default function Page() {
       toast.success('New QRs pushed to database.');
 
       const qrCodes = entries.map((entry) => entry.qr_id);
-      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} />).toBlob();
+      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} thana={user.thana}/>).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
