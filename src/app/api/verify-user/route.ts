@@ -12,12 +12,15 @@ export async function POST(req: Request) {
     console.log("Received email:", email);
 
     if (!email) {
-      return NextResponse.json({ allowed: false, error: "No email provided" }, { status: 400 });
+      return NextResponse.json(
+        { allowed: false, error: "No email provided" },
+        { status: 400 }
+      );
     }
 
     const { data, error } = await supabase
       .from("officer_table")
-      .select("officer_name, role, thana, created_at")
+      .select("officer_name, role, thana, created_at, phone")
       .ilike("email_id", email)
       .maybeSingle();
 
@@ -25,31 +28,32 @@ export async function POST(req: Request) {
       console.log("❌ Supabase error or user not found:", error);
       return NextResponse.json({ allowed: false }, { status: 403 });
     }
-
-
-
+    console.log('data - ', data)
     const payload = {
       name: data.officer_name,
       role: data.role,
       thana: data.thana,
       email,
-      created_at:data.created_at,
+      created_at: data.created_at,
+      phone: data.phone,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
 
     const response = NextResponse.json({
-      allowed:true,
-      name:data.officer_name
-    })
+      allowed: true,
+      name: data.officer_name,
+    });
 
-    response.cookies.set("token",token,{
-      httpOnly:true
-    })
+    response.cookies.set("token", token, {
+      httpOnly: true,
+    });
     return response;
-
   } catch (err) {
     console.error("🔥 API error:", err);
-    return NextResponse.json({ allowed: false, error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { allowed: false, error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

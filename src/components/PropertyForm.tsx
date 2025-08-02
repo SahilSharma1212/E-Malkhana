@@ -383,6 +383,8 @@ export default function PropertyForm() {
     }
   };
 
+
+
   return (
     <>
       {["admin", "thana admin", "super admin"].includes(user.role) ? (
@@ -431,6 +433,8 @@ export default function PropertyForm() {
                 onReset={handleReset}
                 className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 lg:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-180 max-md:pt-8 max-lg:flex-wrap"
               >
+
+                {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className="max-md:text-sm w-48 max-sm:w-70 font-semibold text-gray-700">Police Station:</label>
                   {user.role === "thana admin" ? (
@@ -845,4 +849,5 @@ export default function PropertyForm() {
       )}
     </>
   );
+
 }

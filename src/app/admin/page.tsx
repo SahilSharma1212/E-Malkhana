@@ -18,7 +18,8 @@ export default function Page() {
     name: "",
     role: "",
     thana: "",
-    created_at:"",
+    created_at: "",
+    phone:""
   })
   const [accessUpdate, setAccessUpdate] = useState({
     identifier: "", // email or phone
@@ -165,7 +166,8 @@ export default function Page() {
             name: userData.name,
             role: userData.role,
             thana: userData.thana,
-            created_at:userData.created_at,
+            created_at: userData.created_at,
+            phone:userData.phone,
           };
 
           setUser(User);
@@ -288,30 +290,30 @@ export default function Page() {
         </div>
 
         {/* Admin Info Grid */}
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-700">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-700 max-sm:w-full">
           <div>
             <p className="font-semibold text-gray-900">Name</p>
-            <p>{user.name}</p>
+            <p className="break-words">{user.name}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Email</p>
-            <p>{user.email}</p>
+            <p className="break-words">{user.email}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Role</p>
-            <p>{user.role}</p>
+            <p className="break-words">{user.role}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Status</p>
-            <p></p>
+            <p>Active</p>
           </div>
           <div>
             <p className="font-semibold text-gray-900">Joined</p>
-            <p>{user.created_at}</p>
+            <p className="break-words">{user.created_at}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-900">Last Login</p>
-            <p>July 30, 2025</p>
+            <p className="font-semibold text-gray-900">Phone No.</p>
+            <p>{user.phone}</p>
           </div>
         </div>
       </div>
@@ -320,212 +322,219 @@ export default function Page() {
       {
         ["admin", "thana admin", "super admin"].includes(user.role) ? (
           // all forms div
-          <div className="w-full flex flex-col md:flex-row gap-6 flex-wrap">
+          <>
+            {/* other access */}
+            <div className="w-full flex flex-col md:flex-row gap-6 flex-wrap">
 
-            {/* Create New User */}
-            <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800">Create New User</h2>
-              <form className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Username"
-                  value={newUserGeneration.newusername}
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newusername: e.target.value }) }}
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newUserGeneration.newuserEmail}
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserEmail: e.target.value }) }}
-                />
-                <input
-                  type="text"
-                  placeholder="Phone no."
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  value={newUserGeneration.newuserPhone}
-                  onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserPhone: e.target.value }) }}
-                />
-                <select className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  value={newUserGeneration.newuserRole}
-                  onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserRole: e.target.value }) }}
+              {/* Create New User */}
+              <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-semibold text-gray-800">Create New User</h2>
+                <form className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={newUserGeneration.newusername}
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newusername: e.target.value }) }}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newUserGeneration.newuserEmail}
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserEmail: e.target.value }) }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone no."
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    value={newUserGeneration.newuserPhone}
+                    onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserPhone: e.target.value }) }}
+                  />
+                  <select className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    value={newUserGeneration.newuserRole}
+                    onChange={(e) => { setNewUserGeneration({ ...newUserGeneration, newuserRole: e.target.value }) }}
+                  >
+                    <option value="viewer">Viewer</option>
+                    {
+                      (user.role == "admin" || user.role == "super admin") && (
+                        <>
+                          <option value="thana admin">Thana Admin</option>
+                          {
+                            user.role == "super admin" && (
+                              <>
+                                <option value="admin">Admin</option>
+                                <option value="super admin">Super Admin</option>
+                              </>
+                            )
+                          }
+                        </>
+                      )
+                    }
+
+
+                  </select>
+
+
+
+                  <button className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition-all"
+                    onClick={(e) => handleUserGeneration(e)}
+                  >
+                    Create User
+                  </button>
+                </form>
+              </div>
+
+              {/* Change User Access */}
+              <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-semibold text-gray-800">Change User Access</h2>
+                <form
+                  className="space-y-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+
+                    if (!accessUpdate.identifier || !accessUpdate.newRole) {
+                      toast.error("Please fill all fields");
+                      return;
+                    }
+
+                    // Prevent lower roles from changing access beyond their permission
+                    if (
+                      user.role === "admin" &&
+                      (accessUpdate.newRole === "admin" || accessUpdate.newRole === "super admin")
+                    ) {
+                      toast.error("You are not authorized to assign this role.");
+                      return;
+                    }
+
+                    if (user.role === "thana admin") {
+                      toast.error("You are not allowed to change access.");
+                      return;
+                    }
+
+                    const { data: existing, error: fetchError } = await supabase
+                      .from("officer_table")
+                      .select("*")
+                      .or(`email_id.eq.${accessUpdate.identifier},phone.eq.${accessUpdate.identifier}`);
+
+                    if (fetchError) {
+                      console.error("Fetch error:", fetchError.message);
+                      toast.error("Could not find user");
+                      return;
+                    }
+
+                    if (!existing || existing.length === 0) {
+                      toast.error("No user found with that email or phone.");
+                      return;
+                    }
+
+                    const userToUpdate = existing[0];
+
+                    const { error: updateError } = await supabase
+                      .from("users")
+                      .update({ role: accessUpdate.newRole })
+                      .eq("id", userToUpdate.id);
+
+                    if (updateError) {
+                      console.error("Update error:", updateError.message);
+                      toast.error("Role update failed.");
+                    } else {
+                      toast.success("User access updated.");
+                      setAccessUpdate({ identifier: "", newRole: "" });
+                    }
+                  }}
                 >
-                  <option value="viewer">Viewer</option>
-                  {
-                    (user.role == "admin" || user.role == "super admin") && (
-                      <>
-                        <option value="thana admin">Thana Admin</option>
-                        {
-                          user.role == "super admin" && (
-                            <>
-                              <option value="admin">Admin</option>
-                              <option value="super admin">Super Admin</option>
-                            </>
-                          )
-                        }
-                      </>
-                    )
-                  }
+                  <input
+                    type="text"
+                    placeholder="User Email / Phone no."
+                    value={accessUpdate.identifier}
+                    onChange={(e) =>
+                      setAccessUpdate({ ...accessUpdate, identifier: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                  />
+                  <select
+                    value={accessUpdate.newRole}
+                    onChange={(e) =>
+                      setAccessUpdate({ ...accessUpdate, newRole: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                  >
+                    <option value="">Select New Role</option>
 
+                    {/* Viewer is available to all roles above thana admin */}
+                    <option value="viewer">Viewer</option>
 
-                </select>
-
-
-
-                <button className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition-all"
-                  onClick={(e) => handleUserGeneration(e)}
-                >
-                  Create User
-                </button>
-              </form>
-            </div>
-
-            {/* Change User Access */}
-            <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800">Change User Access</h2>
-              <form
-                className="space-y-3"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-
-                  if (!accessUpdate.identifier || !accessUpdate.newRole) {
-                    toast.error("Please fill all fields");
-                    return;
-                  }
-
-                  // Prevent lower roles from changing access beyond their permission
-                  if (
-                    user.role === "admin" &&
-                    (accessUpdate.newRole === "admin" || accessUpdate.newRole === "super admin")
-                  ) {
-                    toast.error("You are not authorized to assign this role.");
-                    return;
-                  }
-
-                  if (user.role === "thana admin") {
-                    toast.error("You are not allowed to change access.");
-                    return;
-                  }
-
-                  const { data: existing, error: fetchError } = await supabase
-                    .from("officer_table")
-                    .select("*")
-                    .or(`email_id.eq.${accessUpdate.identifier},phone.eq.${accessUpdate.identifier}`);
-
-                  if (fetchError) {
-                    console.error("Fetch error:", fetchError.message);
-                    toast.error("Could not find user");
-                    return;
-                  }
-
-                  if (!existing || existing.length === 0) {
-                    toast.error("No user found with that email or phone.");
-                    return;
-                  }
-
-                  const userToUpdate = existing[0];
-
-                  const { error: updateError } = await supabase
-                    .from("users")
-                    .update({ role: accessUpdate.newRole })
-                    .eq("id", userToUpdate.id);
-
-                  if (updateError) {
-                    console.error("Update error:", updateError.message);
-                    toast.error("Role update failed.");
-                  } else {
-                    toast.success("User access updated.");
-                    setAccessUpdate({ identifier: "", newRole: "" });
-                  }
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="User Email / Phone no."
-                  value={accessUpdate.identifier}
-                  onChange={(e) =>
-                    setAccessUpdate({ ...accessUpdate, identifier: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                />
-                <select
-                  value={accessUpdate.newRole}
-                  onChange={(e) =>
-                    setAccessUpdate({ ...accessUpdate, newRole: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                >
-                  <option value="">Select New Role</option>
-
-                  {/* Viewer is available to all roles above thana admin */}
-                  <option value="viewer">Viewer</option>
-
-                  {/* Admins and super admins can assign thana admin */}
-                  {(user.role === "admin" || user.role === "super admin") && (
-                    <option value="thana admin">Thana Admin</option>
-                  )}
-
-                  {/* Only super admin can assign admin or super admin */}
-                  {user.role === "super admin" && (
-                    <>
-                      <option value="admin">Admin</option>
-                      <option value="super admin">Super Admin</option>
-                    </>
-                  )}
-                </select>
-                <button
-                  type="submit"
-                  className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
-                >
-                  Update Access
-                </button>
-              </form>
-            </div>
-
-
-            {/* Generate QR IDs */}
-            <div className="flex-1 w-full bg-white shadow-md rounded-xl p-6 space-y-4 flex-col items-center">
-              <h2 className="text-xl font-semibold text-gray-800">Generate QR IDs</h2>
-              {qrLoading ? <Loader2 className='text-xl animate-spin text-gray-700' /> : <form className="space-y-4" onSubmit={handleQRGeneration}>
-                <div className="flex flex-col">
-                  <label htmlFor="thana" className="text-sm text-gray-600 mb-1">
-                    Select Police Thana
-                  </label>
-                  <div>
-                    {user.role === "admin" || user.role === "super admin" ? (
-                      <select
-                        value={selectedThana}
-                        onChange={(e) => setSelectedThana(e.target.value)}
-                        className="border border-gray-300 rounded p-2 w-full"
-                      >
-                        <option value="">Select Police Station</option>
-                        {availableThanas.map((thana) => (
-                          <option key={thana} value={thana}>
-                            {thana}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700 transition-all">
-                        {user.thana}
-                      </div>
+                    {/* Admins and super admins can assign thana admin */}
+                    {(user.role === "admin" || user.role === "super admin") && (
+                      <option value="thana admin">Thana Admin</option>
                     )}
+
+                    {/* Only super admin can assign admin or super admin */}
+                    {user.role === "super admin" && (
+                      <>
+                        <option value="admin">Admin</option>
+                        <option value="super admin">Super Admin</option>
+                      </>
+                    )}
+                  </select>
+                  <button
+                    type="submit"
+                    className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
+                  >
+                    Update Access
+                  </button>
+                </form>
+              </div>
+
+
+              {/* Generate QR IDs */}
+              <div className="flex-1 w-full bg-white shadow-md rounded-xl p-6 space-y-4 flex-col items-center">
+                <h2 className="text-xl font-semibold text-gray-800">Generate QR IDs</h2>
+                {qrLoading ? <Loader2 className='text-xl animate-spin text-gray-700' /> : <form className="space-y-4" onSubmit={handleQRGeneration}>
+                  <div className="flex flex-col">
+                    <label htmlFor="thana" className="text-sm text-gray-600 mb-1">
+                      Select Police Thana
+                    </label>
+                    <div>
+                      {user.role === "admin" || user.role === "super admin" ? (
+                        <select
+                          value={selectedThana}
+                          onChange={(e) => setSelectedThana(e.target.value)}
+                          className="border border-gray-300 rounded p-2 w-full"
+                        >
+                          <option value="">Select Police Station</option>
+                          {availableThanas.map((thana) => (
+                            <option key={thana} value={thana}>
+                              {thana}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700 transition-all">
+                          {user.thana}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
 
-                </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-green-500 text-white py-2 rounded-md font-medium hover:bg-green-700 transition-all duration-200"
+                  >
+                    Generate QR IDs
+                  </button>
+                </form>}
 
-                <button
-                  type="submit"
-                  className="w-full bg-green-500 text-white py-2 rounded-md font-medium hover:bg-green-700 transition-all duration-200"
-                >
-                  Generate QR IDs
-                </button>
-              </form>}
+              </div>
+
+
+
 
             </div>
-
-            <div className='flex gap-6'>
+            {/* rack and boxes */}
+            <div className='flex gap-6 max-sm:flex-col'>
               {/* Add Rack */}
               <form onSubmit={handleRackGeneration} className='flex-1 bg-white shadow-md rounded-xl p-6 space-y-4'>
                 <h2 className="text-lg font-semibold text-gray-800 text-center">Add a Rack</h2>
@@ -593,11 +602,9 @@ export default function Page() {
                   Add Box
                 </button>
               </form>
-              
+
             </div>
-
-
-          </div>
+          </>
         ) : (
           // if user is not an admin
           <div className='py-10 flex flex-col items-center gap-4'>
