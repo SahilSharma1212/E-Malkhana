@@ -270,12 +270,12 @@ export default function Page({ params }: PageProps) {
 
       const newLog: StatusLog = {
         property_id: propertyId,
-        status,
+        status:status.toLowerCase(),
         status_remarks: status_remarks || "",
         handling_officer,
         updated_by: user.name,
         time_of_event,
-        reason: reasonFinal,
+        reason: reasonFinal.toLowerCase(),
         created_at: new Date().toISOString(),
         pdf_url: pdfUrl || "",
       };
