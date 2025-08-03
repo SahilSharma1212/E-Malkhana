@@ -332,7 +332,7 @@ export default function Page({ params }: PageProps) {
 
   return (
     <div className="bg-blue-100 p-2 min-h-screen">
-      <div className="p-3 bg-white rounded-md pl-8 pt-7">
+      <div className="p-3 bg-white rounded-md pl-8 max-sm:pl-4 pt-7">
         {loading && <div className="text-center">Loading...</div>}
 
         {!loading && !hasAccess && (
@@ -480,7 +480,7 @@ export default function Page({ params }: PageProps) {
         {!loading && hasAccess && canAddLogs() && (
           <div className="p-4 bg-white rounded-md mt-3 flex items-start justify-center flex-col">
             <button
-              className={`inline-flex items-center justify-center gap-2 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "bg-red-500 hover:bg-red-700" : "bg-green-500 hover:bg-green-700"}`}
+              className={`inline-flex items-center justify-center gap-2 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "bg-red-500 hover:bg-red-700" : "bg-blue-500 hover:bg-blue-700"}`}
               onClick={() => setAddingLogs(!addingLogs)}
               type="button"
               aria-label={addingLogs ? "Cancel adding log" : "Add new log"}
