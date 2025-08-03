@@ -10,7 +10,7 @@ import {
 import toast, { Toaster } from "react-hot-toast"
 import { MdOutlinePhoneIphone } from "react-icons/md";
 import axios from "axios"
-import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 export default function Page() {
     const [signinSuccessfull, setSignInSuccessfull] = useState(false)
@@ -28,6 +28,7 @@ export default function Page() {
             if (data.allowed) {
                 toast.success("Access granted");
                 setSignInSuccessfull(true)
+                window.location.reload();
             } else {
                 await signOut(auth);
                 toast.error("Access denied: not whitelisted");
@@ -40,16 +41,17 @@ export default function Page() {
 
     return (
         signinSuccessfull ? (
-            <div className="h-[32rem] flex justify-center items-center p-5 bg-green-50">
-                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center space-y-6">
-                    <h2 className="text-2xl font-semibold text-green-600">Signed in Successfully</h2>
-                    <p className="text-gray-700">You can now access the admin panel.</p>
+            <div className="h-[32rem] flex justify-center items-center p-5">
+                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center space-y-6 flex flex-col items-center justify-center gap-3">
 
-                    <Link href="/admin">
-                        <button className="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2 rounded-lg transition duration-200">
-                            Go to Admin Panel
-                        </button>
-                    </Link>
+                    <div className='flex flex-col items-center justify-center gap-3'>
+                        <h2 className="text-2xl font-semibold text-green-600">Signed in Successfully</h2>
+                        <p className="text-gray-700">You can now access the admin panel.</p>
+                    </div>
+
+                    <button className="bg-blue-500 text-white font-medium px-6 py-2 rounded-lg transition duration-200 flex items-center justify-center">
+                        <Loader2 className='animate-spin' />
+                    </button>
                 </div>
             </div>
         ) : (
@@ -79,7 +81,7 @@ export default function Page() {
 
                     </div>
                     {/* Phone OTP */}
-                    <div className="flex justify-between items-center pt-4">
+                    <div className="flex justify-between items-center pt-2">
                         <button
                             className="bg-gray-900 hover:bg-gray-700 text-white font-medium px-5 py-2 rounded-md transition-all duration-200 w-full flex justify-center items-center gap-2"
                             onClick={(e) => {

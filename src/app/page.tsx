@@ -34,7 +34,7 @@ export default function Page() {
         toast.error("Couldn't find QR ID")
         setIsValidQrId(false)
       } else if (!data) {
-        toast.error('Row does NOT exist');
+        toast.error('Inavlid QR');
         setIsValidQrId(false)
       } else {
         setIsValidQrId(true)
@@ -54,15 +54,20 @@ export default function Page() {
           <p className='text-red-700 text-2xl font-bold text-center'>You dont have any valid QR ID</p>
           <p className='text-base text-center'>You can still continue to the app</p>
           <div className='flex items-center justify-center gap-3 mt-5 max-sm:flex-col w-full'>
-            <button className='bg-blue-500 text-white px-3 py-1 hover:bg-blue-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
-              <Link href="/search-property">Search</Link>
+            <Link href="/search-property" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
+              <p>Search</p>
               <Search strokeWidth={1} />
-            </button>
+            </Link>
 
-            <button className='bg-blue-500 text-white px-3 py-1 hover:bg-blue-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
-              <Link href="/admin">Admin</Link>
+            <Link href="/admin" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
+              <p>Admin</p>
               <User strokeWidth={1} />
-            </button>
+            </Link>
+
+            <Link href="/scanner" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
+              <p>Scanner</p>
+              <QrCode strokeWidth={1} />
+            </Link>
           </div>
 
         </div>
@@ -84,7 +89,7 @@ export default function Page() {
                 onClick={() => window.location.reload()}
               >
                 <QrCode className="w-5 h-5" />
-                <span className="text-sm font-medium">Scan again</span>
+                <Link href={"/scanner"} className="text-sm font-medium">Scan again</Link>
               </button>
             </div>
           </div>

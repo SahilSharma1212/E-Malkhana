@@ -397,9 +397,9 @@ export default function PropertyForm() {
         .insert([
           {
             property_id: newPropertyId, // Use newPropertyId consistently
-            status: "Entry of item",
-            status_remarks: formData.remarks,
-            handling_officer: formData.ioName,
+            status: "entry of item",
+            status_remarks: formData.remarks.toLowerCase(),
+            handling_officer: formData.ioName.toLowerCase(),
             reason: "Other - Initial Confestication",
             updated_by: user.name,
             time_of_event: new Date().toISOString(),

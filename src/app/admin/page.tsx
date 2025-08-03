@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
 const getQRImageUrl = (value: string) =>
   `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(value)}&size=150x150`;
 
-const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: string[], thana:string }) => {
+const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: string[], thana: string }) => {
   const pages = [];
   for (let i = 0; i < qrCodes.length; i += 6) {
     const chunk = qrCodes.slice(i, i + 6);
@@ -88,6 +88,7 @@ export default function Page() {
   const [availableThanas, setAvailableThanas] = useState<string[]>([]);
   const [rackInput, setRackInput] = useState('');
   const [boxInput, setBoxInput] = useState('');
+  const [newThanaName, setNewThanaName] = useState("")
   const [propertyDetails, setPropertyDetails] = useState<
     {
       property_id: string;
@@ -104,6 +105,23 @@ export default function Page() {
     }[]
   >([]);
 
+  const [isSubmitingThanaNameChange, setIsSubmittingThanaNameChange] = useState(false)
+
+  const [isSubmittingNewThana, setIsSubmittingNewThana] = useState(false)
+
+  const [newThanaCreateObj, setNewThanaCreateObj] = useState({
+    name: "",
+    district: "",
+    pincode: "",
+  })
+
+  const [ispropertyDetailsFetched, setIsPropertyDetailsFetched] = useState(true);
+
+  const [newCredentialValueStyle, setNewCredentialValueStyle] = useState("")
+  const [existingCredentialValue, setExistingCredentialValue] = useState("");
+  const [newCredentialValue, setNewCredentialValue] = useState("")
+  const [isCredentialsUpdating, setIsCredentialUpdating] = useState(false);
+
   useEffect(() => {
     const handleViewData = async () => {
       if (!user.thana) return;
@@ -118,11 +136,13 @@ export default function Page() {
         if (error) {
           console.error('Error fetching property data:', error.message);
           toast.error('Failed to fetch property items.');
+          setIsPropertyDetailsFetched(false);
           return;
         }
 
         if (!data || data.length === 0) {
           toast.error('No property items found.');
+          setIsPropertyDetailsFetched(false)
           return;
         }
 
@@ -130,6 +150,7 @@ export default function Page() {
       } catch (err) {
         console.error('Unexpected error:', err);
         toast.error('An unexpected error occurred.');
+        setIsPropertyDetailsFetched(false)
       }
     };
 
@@ -213,11 +234,11 @@ export default function Page() {
         return;
       }
 
-      const updatedRacks = [...(data.racks || []), rackInput.trim()];
+      const updatedRacks = [...(data.racks || []), rackInput.trim().toLowerCase()];
 
       const { error: updateError } = await supabase
         .from('thana_rack_box_table')
-        .update({ racks: updatedRacks })
+        .update({ racks: updatedRacks, thana_rack_updated_by: user.name, thana_rack_updated_at: new Date().toISOString() })
         .eq('thana', policeStation);
 
       if (updateError) {
@@ -264,11 +285,11 @@ export default function Page() {
         return;
       }
 
-      const updatedBoxes = [...(data.boxes || []), boxInput.trim()];
+      const updatedBoxes = [...(data.boxes || []), boxInput.trim().toLowerCase()];
 
       const { error: updateError } = await supabase
         .from('thana_rack_box_table')
-        .update({ boxes: updatedBoxes })
+        .update({ boxes: updatedBoxes, thana_box_updated_by: user.name, thana_box_updated_at: new Date().toISOString() })
         .eq('thana', policeStation);
 
       if (updateError) {
@@ -317,7 +338,7 @@ export default function Page() {
       toast.success('New QRs pushed to database.');
 
       const qrCodes = entries.map((entry) => entry.qr_id);
-      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} thana={user.thana}/>).toBlob();
+      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} thana={user.thana} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -365,11 +386,13 @@ export default function Page() {
 
       const { error } = await supabase.from('officer_table').insert([
         {
-          officer_name: newusername,
-          email_id: newuserEmail,
-          phone: newuserPhone,
-          role: newuserRole,
-          thana: newuserThana,
+          officer_name: newusername.toLowerCase(),
+          email_id: newuserEmail.trim(),
+          phone: newuserPhone.trim().toLowerCase(),
+          role: newuserRole.toLowerCase(),
+          thana: newuserThana.toLowerCase(),
+          updated_by: user.name,
+          updated_at: new Date().toISOString,
         },
       ]);
 
@@ -391,6 +414,195 @@ export default function Page() {
       toast.error('Something went wrong.');
     }
   };
+
+
+  const handleThanaNameChange = async () => {
+    setIsSubmittingThanaNameChange(true)
+
+    if (selectedThana == "" || newThanaName == "") {
+      toast.error("Please fill all the fields");
+      setIsSubmittingThanaNameChange(false)
+      return;
+    }
+
+    // Check if a thana with the new name already exists
+    const { data: existingThana, error: checkError } = await supabase
+      .from("thana_rack_box_table")
+      .select("thana")
+      .eq("thana", newThanaName.toLowerCase())
+      .maybeSingle();
+
+    if (checkError) {
+      toast.error("Error checking for existing Thana name");
+      console.error(checkError);
+      setIsSubmittingThanaNameChange(false);
+      return;
+    }
+
+    if (existingThana) {
+      toast.error("A Thana with this name already exists");
+      setIsSubmittingThanaNameChange(false);
+      return;
+    }
+
+
+    const { error } = await supabase
+      .from("thana_rack_box_table")
+      .update({ thana: newThanaName.toLowerCase(), thana_name_updated_by: user.name, thana_name_updated_at: new Date().toISOString() })
+      .eq("thana", selectedThana);
+
+    if (error) {
+      toast.error("Error updating Thana name in Rack Box Table");
+      console.error(error);
+      setIsSubmittingThanaNameChange(false)
+      return;
+    } else {
+      toast.success("Thana name updated successfully");
+    }
+
+
+    // now updating thana name in the officers table
+    const { error: officerError } = await supabase
+      .from("officer_table")
+      .update({ thana: newThanaName.toLowerCase() })
+      .eq("thana", selectedThana);
+
+    if (officerError) {
+      toast.error("Failed to update Thana name in Officers table");
+      console.error(officerError);
+      setIsSubmittingThanaNameChange(false)
+      return;
+    }
+
+    toast.success("Thana name updated in Officer's table successfully");
+
+    const { error: propertyError } = await supabase
+      .from("property_table")
+      .update({ police_station: newThanaName.toLowerCase() })
+      .eq("police_station", selectedThana);
+
+    if (propertyError) {
+      toast.error("Failed to update Thana name in Property table");
+      console.error(propertyError);
+      setIsSubmittingThanaNameChange(false)
+      return;
+    }
+
+    toast.success("Thana name updated in Property Table successfully")
+    setIsSubmittingThanaNameChange(false)
+    window.location.reload();
+
+  }
+
+  const handleNewThanaCreation = async () => {
+
+    setIsSubmittingNewThana(true)
+
+    if (newThanaCreateObj.name.trim() == "" || newThanaCreateObj.district.trim() == "" || newThanaCreateObj.pincode.trim() == "") {
+      toast.error("Fill all the fields")
+      setIsSubmittingNewThana(false);
+
+
+      return;
+    }
+
+    const { error } = await supabase.from("thana_rack_box_table").insert(
+      {
+        thana: newThanaCreateObj.name.toLowerCase(),
+        racks: [],
+        boxes: [],
+        thana_name_updated_by: user.name,
+        thana_created_by: user.name,
+        district: newThanaCreateObj.district.toLowerCase(),
+        pin_code: newThanaCreateObj.pincode.toLowerCase().trim(),
+      }
+    )
+
+    if (error) {
+      console.error(error)
+      toast.error("Unable to create Thana")
+      setIsSubmittingNewThana(false);
+      return;
+    }
+
+    toast.success("Thana created successfully")
+    setIsSubmittingNewThana(false);
+    setNewThanaCreateObj({
+      name: "",
+      pincode: "",
+      district: ""
+    })
+  }
+
+  const handleNewCredentialChange = async () => {
+    setIsCredentialUpdating(true);
+
+    if (
+      newCredentialValue.trim() === "" ||
+      newCredentialValueStyle.trim() === "" ||
+      existingCredentialValue.trim() === ""
+    ) {
+      toast.error("Please fill all the fields");
+      setIsCredentialUpdating(false);
+      return;
+    }
+
+    // 1️⃣ Check if the existing credential exists
+    const { data: targetRows, error: findError } = await supabase
+      .from("officer_table")
+      .select("*")
+      .eq(newCredentialValueStyle, existingCredentialValue);
+
+    if (findError || !targetRows || targetRows.length === 0) {
+      toast.error("Original credential not found");
+      setIsCredentialUpdating(false);
+      return;
+    }
+
+    const targetOfficer = targetRows[0];
+
+    // 2️⃣ Check if new credential value is already taken by someone else
+    const { data: conflictRows, error: conflictError } = await supabase
+      .from("officer_table")
+      .select("*")
+      .eq(newCredentialValueStyle, newCredentialValue.toLowerCase());
+
+    if (conflictError) {
+      toast.error("Failed to validate new credential");
+      setIsCredentialUpdating(false);
+      return;
+    }
+
+    const isTakenByAnother = conflictRows.some(
+      (row) => row.id !== targetOfficer.id
+    );
+
+    if (isTakenByAnother) {
+      toast.error("New credential already in use by another officer");
+      setIsCredentialUpdating(false);
+      return;
+    }
+
+    // ✅ Proceed to update
+    const { error: updateError } = await supabase
+      .from("officer_table")
+      .update({
+        [newCredentialValueStyle]: newCredentialValue.toLowerCase(),
+        updated_by: user.name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetOfficer.id); // reliable update filter
+
+    if (updateError) {
+      toast.error("Unable to update credentials");
+      setIsCredentialUpdating(false);
+      return;
+    }
+
+    setIsCredentialUpdating(false);
+    toast.success("Credentials updated successfully");
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 space-y-8">
@@ -439,6 +651,8 @@ export default function Page() {
         <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
           Seized Property Items: {user.thana || 'N/A'}
         </h2>
+
+        {ispropertyDetailsFetched ? "" : <p className='flex items-center justify-center text-center pb-5 text-red-700'>( Try refreshing or logging in again ! )</p>}
         <table className="min-w-full border text-sm text-left text-gray-700">
           <thead className="bg-gray-100 text-xs uppercase text-gray-600">
             <tr>
@@ -612,7 +826,7 @@ export default function Page() {
 
                       const { error: updateError } = await supabase
                         .from('officer_table')
-                        .update({ role: accessUpdate.newRole })
+                        .update({ role: accessUpdate.newRole, updated_by: user.name, updated_at: new Date().toISOString() })
                         .eq('id', userToUpdate.id);
 
                       if (updateError) {
@@ -750,7 +964,7 @@ export default function Page() {
               />
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all"
+                className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-700 transition-all"
               >
                 Add Rack
               </button>
@@ -805,6 +1019,137 @@ export default function Page() {
           </span>
         </div>
       )}
+
+
+
+      {user.role === 'super admin' && (
+        <>
+          <p className="text-center px-5 text-2xl font-semibold text-gray-600">Super Admin Access</p>
+
+          <div className="flex gap-6 items-start justify-start p-4 max-lg:flex-wrap min-h-100 max-sm:flex-col">
+
+            {/* Section 1: Change Thana Name */}
+            <div className="bg-white p-6 rounded-xl w-full max-lg:w-[48%] max-w-md shadow h-full max-sm:w-full">
+              <p className="text-lg font-semibold mb-4 text-center">Change Thana name</p>
+              <label className="block mb-1">Select Thana to change</label>
+
+              <select
+                className="w-full px-4 py-2 border rounded-md border-gray-300 mb-3"
+                value={selectedThana}
+                onChange={(e) => setSelectedThana(e.target.value)}
+              >
+                <option value="">Select Police Station</option>
+                {availableThanas.map((thana) => (
+                  <option key={thana} value={thana}>
+                    {thana}
+                  </option>
+                ))}
+              </select>
+              <label className='block mb-1'>Enter new name</label>
+              <input
+                type="text"
+                className="w-full border px-3 py-2 rounded mb-3" placeholder="Enter Thana Name"
+                onChange={(e) => setNewThanaName(e.target.value)}
+              />
+              <button
+                disabled={isSubmitingThanaNameChange}
+                className="bg-blue-500 text-white w-full py-2 rounded hover:bg-blue-700 flex justify-center items-center"
+                onClick={handleThanaNameChange}
+              >{isSubmitingThanaNameChange ? <Loader2 className='animate-spin' /> : "Update"}</button>
+
+            </div>
+
+            {/* Section 2: Create New Thana */}
+            <div className="bg-white p-6 rounded-xl w-full max-w-md max-lg:w-[48%] shadow max-sm:w-full">
+              <p className="text-lg font-semibold mb-4 text-center">Create New Thana with Details</p>
+              <label className="block mb-1">Thana Name</label>
+              <input
+                type="text"
+                className="w-full border px-3 py-2 rounded mb-3"
+                value={newThanaCreateObj.name}
+                placeholder="Name"
+                onChange={(e) => {
+                  setNewThanaCreateObj({
+                    ...newThanaCreateObj,
+                    name: e.target.value
+                  });
+                }}
+              />
+
+              <label className="block mb-1">District</label>
+              <input
+                type="text"
+                className="w-full border px-3 py-2 rounded mb-3"
+                value={newThanaCreateObj.district}
+                placeholder="District"
+                onChange={(e) => {
+                  setNewThanaCreateObj({
+                    ...newThanaCreateObj,
+                    district: e.target.value
+                  });
+                }}
+              />
+              <label className="block mb-1">PIN Code</label>
+              <input type="text"
+                className="w-full border px-3 py-2 rounded mb-3"
+                value={newThanaCreateObj.pincode}
+                placeholder="PIN Code"
+                onChange={(e) => {
+                  setNewThanaCreateObj({
+                    ...newThanaCreateObj,
+                    pincode: e.target.value
+                  });
+                }}
+              />
+
+              <button
+                disabled={isSubmittingNewThana}
+                className="bg-green-500 text-white w-full py-2 rounded hover:bg-green-700 flex items-center justify-center"
+                onClick={handleNewThanaCreation}
+              >{isSubmittingNewThana ? <Loader2 className='animate-spin' /> : "Create Thana"}</button>
+            </div>
+
+            {/* Section 3: Change User Info */}
+            <div className="bg-white p-6 rounded-xl w-full max-w-md shadow max-sm:w-full max-lg:w-[48%]">
+              <p className="text-lg font-semibold mb-4 text-center">Change User Contact Info</p>
+              <label className="block mb-1">Choose credentials to update</label>
+              <select
+                className="w-full border px-3 py-2 rounded mb-3"
+                onChange={(e) => setNewCredentialValueStyle(e.target.value)}
+              >
+                <option value="">Select</option>
+                <option value="email_id">Email Id</option>
+                <option value="phone">Phone</option>
+              </select>
+              <label className="block mb-1">Existing Value</label>
+              <input
+                type="tel"
+                className="w-full border px-3 py-2 rounded mb-3"
+                placeholder="Value"
+                value={existingCredentialValue}
+                onChange={(e) => setExistingCredentialValue(e.target.value)}
+              />
+
+
+              <label className="block mb-1">Enter new value</label>
+              <input
+                type="tel"
+                className="w-full border px-3 py-2 rounded mb-3"
+                placeholder="Value"
+                value={newCredentialValue}
+                onChange={(e) => setNewCredentialValue(e.target.value)}
+              />
+              <button
+                disabled={isCredentialsUpdating}
+                className="bg-yellow-600 text-white w-full py-2 rounded hover:bg-yellow-700 flex items-center justify-center"
+                onClick={handleNewCredentialChange}
+              >{isCredentialsUpdating ? <Loader2 className='animate-spin' /> : "Update Info"}</button>
+            </div>
+
+          </div>
+        </>
+      )}
+
     </div>
   );
 }

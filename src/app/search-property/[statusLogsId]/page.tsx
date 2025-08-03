@@ -6,7 +6,9 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, FormEvent, useRef, use } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import { FaFileExcel } from "react-icons/fa";
 import QRCode from "react-qr-code";
+import * as XLSX from "xlsx"
 
 // Define interfaces
 interface StatusLog {
@@ -71,91 +73,100 @@ export default function Page({ params }: PageProps) {
 
   // Fetch property details and status logs
   useEffect(() => {
-  const init = async () => {
-    try {
-      setLoading(true);
+    const init = async () => {
+      try {
+        setLoading(true);
 
-      // 1. Get user info
-      const res = await axios.get('/api/get-token', { withCredentials: true });
-      const userData = res.data.user;
+        // 1. Get user info
+        const res = await axios.get('/api/get-token', { withCredentials: true });
+        const userData = res.data.user;
 
-      if (!userData) {
-        setHasAccess(false);
+        if (!userData) {
+          setHasAccess(false);
+          setLoading(false);
+          return;
+        }
+
+        const tempUser = {
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          thana: userData.thana,
+        };
+
+        setUser(tempUser);
+
+        // 2. Fetch property first to check which police station it belongs to
+        const { data: property, error: propertyError } = await supabase
+          .from("property_table")
+          .select("*")
+          .eq("property_id", propertyId)
+          .single();
+
+        if (propertyError) {
+          console.error("❌ Property fetch error:", propertyError.message);
+          toast.error("Error Fetching Property Details");
+          setHasAccess(false);
+          setLoading(false);
+          return;
+        }
+
+        // 3. Check access logic
+        const sameThana = property.police_station === tempUser.thana;
+
+        let allowed = false;
+        if (["admin", "super admin"].includes(tempUser.role)) {
+          allowed = true;
+        } else if (tempUser.role === "thana admin" && sameThana) {
+          allowed = true;
+        } else if (tempUser.role === "viewer" && sameThana) {
+          allowed = true;
+        }
+
+        setHasAccess(allowed);
+
+        if (!allowed) {
+          setLoading(false);
+          return;
+        }
+
+        // 4. Only fetch logs if allowed
+        setPropertyDetails(property);
+
+        const { data: logs, error: logsError } = await supabase
+          .from("status_logs_table")
+          .select("*")
+          .eq("property_id", propertyId);
+
+        if (logsError) {
+          console.error("❌ Logs fetch error:", logsError.message);
+          toast.error("Error Fetching Logs");
+          return;
+        }
+
+        setStatusLogs(logs || []);
+      } catch (error) {
+        console.error("Unexpected error:", error);
+        toast.error("An unexpected error occurred");
+      } finally {
         setLoading(false);
-        return;
       }
+    };
 
-      const tempUser = {
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        thana: userData.thana,
-      };
-
-      setUser(tempUser);
-
-      // 2. Fetch property first to check which police station it belongs to
-      const { data: property, error: propertyError } = await supabase
-        .from("property_table")
-        .select("*")
-        .eq("property_id", propertyId)
-        .single();
-
-      if (propertyError) {
-        console.error("❌ Property fetch error:", propertyError.message);
-        toast.error("Error Fetching Property Details");
-        setHasAccess(false);
-        setLoading(false);
-        return;
-      }
-
-      // 3. Check access logic
-      const sameThana = property.police_station === tempUser.thana;
-
-      let allowed = false;
-      if (["admin", "super admin"].includes(tempUser.role)) {
-        allowed = true;
-      } else if (tempUser.role === "thana admin" && sameThana) {
-        allowed = true;
-      } else if (tempUser.role === "viewer" && sameThana) {
-        allowed = true;
-      }
-
-      setHasAccess(allowed);
-
-      if (!allowed) {
-        setLoading(false);
-        return;
-      }
-
-      // 4. Only fetch logs if allowed
-      setPropertyDetails(property);
-
-      const { data: logs, error: logsError } = await supabase
-        .from("status_logs_table")
-        .select("*")
-        .eq("property_id", propertyId);
-
-      if (logsError) {
-        console.error("❌ Logs fetch error:", logsError.message);
-        toast.error("Error Fetching Logs");
-        return;
-      }
-
-      setStatusLogs(logs || []);
-    } catch (error) {
-      console.error("Unexpected error:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setLoading(false);
+    if (propertyId) {
+      init();
     }
+  }, [propertyId]);
+
+  // function to export to excel sheet
+
+  const exportTableToExcel = () => {
+    const table = document.getElementById('data-table');
+    if (!table) return;
+
+    const workbook = XLSX.utils.table_to_book(table, { sheet: 'Sheet1' });
+    XLSX.writeFile(workbook, `property_logs_${propertyDetails?.id}.xlsx`);
   };
-
-  if (propertyId) {
-    init();
-  }
-}, [propertyId]);
-
 
   // Fetch user data and determine access
   useEffect(() => {
@@ -412,7 +423,7 @@ export default function Page({ params }: PageProps) {
               <p className="italic text-gray-600">No logs found.</p>
             ) : (
               <div className="w-full overflow-x-auto max-w-full">
-                <table className="min-w-full border border-gray-300 text-sm">
+                <table id="data-table" className="min-w-full border border-gray-300 text-sm">
                   <thead>
                     <tr className="bg-gray-100 text-left font-semibold text-gray-700">
                       <th className="border px-4 py-2">Remarks</th>
@@ -450,8 +461,19 @@ export default function Page({ params }: PageProps) {
                     ))}
                   </tbody>
                 </table>
+
               </div>
             )}
+
+            <div className="py-3 px-3 flex justify-end items-center w-full">
+              <button
+                className="border border-green-500 border-dashed px-3 py-2 bg-green-50 hover:bg-green-200 rounded-md flex items-center justify-center gap-2 text-green-700"
+                onClick={exportTableToExcel}
+              >
+                <span>Export</span>
+                <FaFileExcel />
+              </button>
+            </div>
           </div>
         )}
 

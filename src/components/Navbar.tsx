@@ -4,9 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import toast,{Toaster} from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import axios from 'axios';
-import { LogOut, Search } from 'lucide-react';
+import { LogOut, QrCode, Search } from 'lucide-react';
 
 export default function Navbar() {
   const [hasToken, setHasToken] = useState(false);
@@ -35,18 +35,18 @@ export default function Navbar() {
   // Handle sign-out
   const handleSignOut = async () => {
     try {
-    const res = await axios.post('/api/sign-out', {}, {
-      withCredentials: true,
-    });
+      const res = await axios.post('/api/sign-out', {}, {
+        withCredentials: true,
+      });
 
-    if (res.data.success) {
-      toast.success("Signed Out")
-      setHasToken(false);
-      router.push('/sign-in');
+      if (res.data.success) {
+        toast.success("Signed Out")
+        setHasToken(false);
+        router.push('/sign-in');
+      }
+    } catch (err) {
+      console.error("Sign-out failed:", err);
     }
-  } catch (err) {
-    console.error("Sign-out failed:", err);
-  }
   };
 
   return (
@@ -76,6 +76,17 @@ export default function Navbar() {
         <div className="space-x-4 text-sm md:text-base max-md:text-sm flex items-center justify-center">
           {hasToken && (
             <>
+
+
+              <button
+                className="hover:underline text-sm md:text-base max-md:text-sm px-2 py-1 rounded-md  border-white text-white border hover:bg-blue-400 max-sm:scale-90 sm:border"
+              >
+                <Link href={"/scanner"} className="">
+                  <QrCode strokeWidth={1} />
+                </Link>
+              </button>
+
+
               <button
                 onClick={handleSignOut}
                 className="text-sm md:text-base max-md:text-sm px-3 py-1 rounded-md max-sm:hidden border-blue-300 text-white border font-medium  hover:bg-blue-400"
@@ -86,20 +97,24 @@ export default function Navbar() {
                 onClick={handleSignOut}
                 className="hover:underline text-sm md:text-base max-md:text-sm px-2 py-1 rounded-md  border-white text-white border sm:hidden hover:bg-blue-400 max-sm:scale-90"
               >
-                <LogOut strokeWidth={1}/>
+                <LogOut strokeWidth={1} />
               </button>
+
+
+
+
             </>
           )}
           <Link href="/search-property" className="text-sm md:text-base max-md:text-sm px-3 py-1 rounded-md max-sm:hidden border-blue-300 text-white border font-medium  hover:bg-blue-400">
             Search
           </Link>
           <Link href="/search-property" className="px-2 py-1 hover:bg-blue-400 rounded-sm transition-all sm:hidden border border-white max-sm:scale-90">
-            <Search strokeWidth={1}/>
+            <Search strokeWidth={1} />
           </Link>
 
         </div>
       </div>
-      <Toaster/>
+      <Toaster />
     </nav>
   );
 }
