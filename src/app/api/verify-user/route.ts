@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       console.log("❌ Supabase error or user not found:", error);
       return NextResponse.json({ allowed: false }, { status: 403 });
     }
-    console.log('data - ', data)
+    console.log("data - ", data);
     const payload = {
       name: data.officer_name,
       role: data.role,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       phone: data.phone,
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "15d" });
 
     const response = NextResponse.json({
       allowed: true,
@@ -47,6 +47,9 @@ export async function POST(req: Request) {
 
     response.cookies.set("token", token, {
       httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 15,
     });
     return response;
   } catch (err) {
