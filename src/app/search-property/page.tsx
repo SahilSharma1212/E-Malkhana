@@ -1,7 +1,6 @@
 "use client";
 import { ChevronLeft, Logs, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import supabase from '@/config/supabaseConnect';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
@@ -82,23 +81,20 @@ export default function Page() {
   // inotial fetch function
   const fetchAllProperties = async () => {
     setLoading(true);
-    let query = supabase
-      .from("property_table")
-      .select("*")
-      .not("property_id", "is", null)
-      .neq("property_id", "");
 
-    // Apply access control if role is 'viewer'
-    if (userData.role === "viewer" || userData.role === "thana admin") {
-      query = query.eq("police_station", userData.thana);
-    }
+    try {
+      const response = await axios.post("/api/fetch-properties-search", {
+        role: userData.role,
+        thana: userData.thana,
+      });
 
-    const { data, error } = await query.order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("❌ Error fetching all data:", error.message);
-    } else {
-      setPropertyData(data);
+      if (response.data?.data) {
+        setPropertyData(response.data.data);
+      } else {
+        console.error("❌ Error:", response.data?.error || "Unknown error");
+      }
+    } catch (error) {
+      console.error("❌ Request failed:", error);
     }
 
     setLoading(false);
@@ -128,54 +124,39 @@ export default function Page() {
     checkAuth()
   }, [])
 
-  const handleSearch = async (e: React.FormEvent) => {
+const handleSearch = async (e: React.FormEvent) => {
   e.preventDefault();
-  if (searchValue.trim() === "") return alert("Please enter a value to search.");
+
+  if (searchValue.trim() === "") {
+    alert("Please enter a value to search.");
+    return;
+  }
+
   setLoading(true);
 
-  let query = supabase.from("property_table").select("*")
-    .not("property_id", "is", null)
-    .neq("property_id", "");
+  try {
+    const response = await fetch("/api/handle-search-property", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        searchValue,
+        searchCategory,
+        column,
+        userData,
+      }),
+    });
 
-  if (searchCategory === "offence") {
-    if (searchValue === "other") {
-      query = query
-        .not("category_of_offence", "in", ["body offence", "property offence", "offence related to c/w"])
-        .neq("category_of_offence", "");
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ API error:", result.error);
     } else {
-      query = query.eq("category_of_offence", searchValue);
+      setPropertyData(result.data);
     }
-  }
-
-  else if (searchCategory === "io") {
-    query = query.ilike("name_of_io", `%${searchValue}%`);
-  }
-
-  else if (searchCategory === "created_at" || searchCategory === "seizuredate") {
-    const from = new Date(searchValue);
-    const to = new Date(searchValue);
-    to.setDate(to.getDate() + 1);
-    query = query
-      .gte("created_at", from.toISOString())
-      .lt("created_at", to.toISOString());
-  }
-
-  else {
-    // property, fir, court, rack, box
-    query = query.eq(column, searchValue.trim());
-  }
-
-  // 🔐 Access control: restrict to viewer's thana
-  if (userData.role === "viewer" || userData.role === "thana admin") {
-    query = query.eq("police_station", userData.thana);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("❌ Error fetching search data:", error.message);
-  } else {
-    setPropertyData(data);
+  } catch (err) {
+    console.error("❌ Network error:", err);
   }
 
   setLoading(false);

@@ -127,44 +127,33 @@ export default function Page() {
       if (!user.thana) return;
 
       try {
-        const { data, error } = await supabase
-          .from('property_table')
-          .select('property_id, name_of_io, created_at, date_of_seizure, category_of_offence, type_of_seizure, fir_number, place_of_seizure, rack_number, box_number, serial_number_from_register')
-          .eq('police_station', user.thana)
-          .neq('property_id', '');
+        const response = await axios.get(`/api/fetch-property-data-admin`, {
+          params: { thana: user.thana },
+        });
 
-        if (error) {
-          console.error('Error fetching property data:', error.message);
-          toast.error('Failed to fetch property items.');
+        if (response.data.success) {
+          setPropertyDetails(response.data.data);
+        } else {
+          toast.error(response.data.message);
           setIsPropertyDetailsFetched(false);
-          return;
         }
-
-        if (!data || data.length === 0) {
-          toast.error('No property items found.');
-          setIsPropertyDetailsFetched(false)
-          return;
-        }
-
-        setPropertyDetails(data);
       } catch (err) {
         console.error('Unexpected error:', err);
-        toast.error('An unexpected error occurred.');
-        setIsPropertyDetailsFetched(false)
+        toast.error("An unexpected error occurred.");
+        setIsPropertyDetailsFetched(false);
       }
     };
 
     handleViewData();
   }, [user.thana]);
 
+
   useEffect(() => {
     async function checkAuth() {
       try {
-        const res = await axios.get('/api/get-token', {
-          withCredentials: true,
-        });
-
+        const res = await axios.get('/api/get-token', { withCredentials: true });
         const userData = res.data.user;
+
         if (userData) {
           const User = {
             email: userData.email || '',
@@ -181,17 +170,18 @@ export default function Page() {
             newuserThana: User.thana || '',
           }));
 
+          // Admin-only: fetch thanas
           if (User.role === 'admin' || User.role === 'super admin') {
-            const { data, error } = await supabase
-              .from('thana_rack_box_table')
-              .select('thana');
-
-            if (error) {
-              console.error('Error fetching thanas:', error.message);
-              toast.error('Failed to fetch thanas.');
-            } else if (data) {
-              const uniqueThanas = [...new Set(data.map((d) => d.thana))];
-              setAvailableThanas(uniqueThanas);
+            try {
+              const thanaRes = await axios.get('/api/fetch-thana-admin');
+              if (thanaRes.data.success) {
+                setAvailableThanas(thanaRes.data.thanas);
+              } else {
+                toast.error(thanaRes.data.message);
+              }
+            } catch (thanaErr) {
+              console.error('Fetch thanas failed:', thanaErr);
+              toast.error("Failed to fetch thanas.");
             }
           }
         }
@@ -204,6 +194,7 @@ export default function Page() {
     checkAuth();
   }, []);
 
+
   const handleRackGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
     const policeStation = user.role === 'thana admin' ? user.thana : selectedThana;
@@ -214,44 +205,18 @@ export default function Page() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('thana_rack_box_table')
-        .select('racks')
-        .eq('thana', policeStation)
-        .single();
+      const response = await axios.post('/api/add-rack', {
+        rackInput,
+        policeStation,
+        userName: user.name,
+      });
 
-      if (error || !data) {
-        console.error('Fetch rack error:', error?.message);
-        toast.error('Thana not found.');
-        return;
-      }
-
-      const normalizedInput = rackInput.trim().toLowerCase();
-      const existingRacks = (data.racks || []).map((r: string) => r.trim().toLowerCase());
-
-      if (existingRacks.includes(normalizedInput)) {
-        toast.error('Rack already exists.');
-        return;
-      }
-
-      const updatedRacks = [...(data.racks || []), rackInput.trim().toLowerCase()];
-
-      const { error: updateError } = await supabase
-        .from('thana_rack_box_table')
-        .update({ racks: updatedRacks, thana_rack_updated_by: user.name, thana_rack_updated_at: new Date().toISOString() })
-        .eq('thana', policeStation);
-
-      if (updateError) {
-        console.error('Update rack error:', updateError.message);
-        toast.error('Failed to update rack.');
-      } else {
-        toast.success('Rack added successfully.');
-        setRackInput('');
-        setSelectedThana('');
-      }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      toast.error('An unexpected error occurred.');
+      toast.success(response.data.message || 'Rack added successfully.');
+      setRackInput('');
+      setSelectedThana('');
+    } catch (error) {
+      console.error('Rack add error:', error);
+      toast.error('Failed to add rack.');
     }
   };
 
@@ -265,41 +230,15 @@ export default function Page() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('thana_rack_box_table')
-        .select('boxes')
-        .eq('thana', policeStation)
-        .single();
+      const response = await axios.post('/api/add-box', {
+        boxInput,
+        policeStation,
+        userName: user.name,
+      });
 
-      if (error || !data) {
-        console.error('Fetch box error:', error?.message);
-        toast.error('Thana not found.');
-        return;
-      }
-
-      const normalizedInput = boxInput.trim().toLowerCase();
-      const existingBoxes = (data.boxes || []).map((b: string) => b.trim().toLowerCase());
-
-      if (existingBoxes.includes(normalizedInput)) {
-        toast.error('Box already exists.');
-        return;
-      }
-
-      const updatedBoxes = [...(data.boxes || []), boxInput.trim().toLowerCase()];
-
-      const { error: updateError } = await supabase
-        .from('thana_rack_box_table')
-        .update({ boxes: updatedBoxes, thana_box_updated_by: user.name, thana_box_updated_at: new Date().toISOString() })
-        .eq('thana', policeStation);
-
-      if (updateError) {
-        console.error('Update box error:', updateError.message);
-        toast.error('Failed to update box.');
-      } else {
-        toast.success('Box added successfully.');
-        setBoxInput('');
-        setSelectedThana('');
-      }
+      toast.success(response.data.message || 'Box added successfully.');
+      setBoxInput('');
+      setSelectedThana('');
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('An unexpected error occurred.');
@@ -368,47 +307,24 @@ export default function Page() {
     }
 
     try {
-      const { data: existingUsers, error: checkError } = await supabase
-        .from('officer_table')
-        .select('*')
-        .or(`email_id.eq.${newuserEmail},phone.eq.${newuserPhone}`);
+      const response = await axios.post('/api/create-user', {
+        newusername,
+        newuserEmail,
+        newuserRole,
+        newuserPhone,
+        newuserThana,
+        updatedBy: user.name,
+      });
 
-      if (checkError) {
-        console.error('Error checking existing user:', checkError.message);
-        toast.error('Something went wrong. Try again.');
-        return;
-      }
+      toast.success(response.data.message || 'User created successfully.');
 
-      if (existingUsers && existingUsers.length > 0) {
-        toast.error('A user with this email or phone already exists.');
-        return;
-      }
-
-      const { error } = await supabase.from('officer_table').insert([
-        {
-          officer_name: newusername.toLowerCase(),
-          email_id: newuserEmail.trim(),
-          phone: newuserPhone.trim().toLowerCase(),
-          role: newuserRole.toLowerCase(),
-          thana: newuserThana.toLowerCase(),
-          updated_by: user.name,
-          updated_at: new Date().toISOString,
-        },
-      ]);
-
-      if (error) {
-        console.error('User creation failed:', error.message);
-        toast.error('Failed to create user.');
-      } else {
-        toast.success('User created successfully.');
-        setNewUserGeneration({
-          newusername: '',
-          newuserRole: 'viewer',
-          newuserEmail: '',
-          newuserPhone: '',
-          newuserThana: user.thana || '',
-        });
-      }
+      setNewUserGeneration({
+        newusername: '',
+        newuserRole: 'viewer',
+        newuserEmail: '',
+        newuserPhone: '',
+        newuserThana: user.thana || '',
+      });
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('Something went wrong.');
@@ -425,72 +341,32 @@ export default function Page() {
       return;
     }
 
-    // Check if a thana with the new name already exists
-    const { data: existingThana, error: checkError } = await supabase
-      .from("thana_rack_box_table")
-      .select("thana")
-      .eq("thana", newThanaName.toLowerCase())
-      .maybeSingle();
+    try {
+      const res = await fetch("/api/update-thana-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedThana,
+          newThanaName,
+          userName: user.name,
+        }),
+      });
 
-    if (checkError) {
-      toast.error("Error checking for existing Thana name");
-      console.error(checkError);
-      setIsSubmittingThanaNameChange(false);
-      return;
+      const result = await res.json();
+
+      if (!result.success) {
+        toast.error(result.message || "Update failed");
+      } else {
+        toast.success("Thana name updated successfully");
+        window.location.reload();
+      }
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Unexpected error occurred");
     }
 
-    if (existingThana) {
-      toast.error("A Thana with this name already exists");
-      setIsSubmittingThanaNameChange(false);
-      return;
-    }
-
-
-    const { error } = await supabase
-      .from("thana_rack_box_table")
-      .update({ thana: newThanaName.toLowerCase(), thana_name_updated_by: user.name, thana_name_updated_at: new Date().toISOString() })
-      .eq("thana", selectedThana);
-
-    if (error) {
-      toast.error("Error updating Thana name in Rack Box Table");
-      console.error(error);
-      setIsSubmittingThanaNameChange(false)
-      return;
-    } else {
-      toast.success("Thana name updated successfully");
-    }
-
-
-    // now updating thana name in the officers table
-    const { error: officerError } = await supabase
-      .from("officer_table")
-      .update({ thana: newThanaName.toLowerCase() })
-      .eq("thana", selectedThana);
-
-    if (officerError) {
-      toast.error("Failed to update Thana name in Officers table");
-      console.error(officerError);
-      setIsSubmittingThanaNameChange(false)
-      return;
-    }
-
-    toast.success("Thana name updated in Officer's table successfully");
-
-    const { error: propertyError } = await supabase
-      .from("property_table")
-      .update({ police_station: newThanaName.toLowerCase() })
-      .eq("police_station", selectedThana);
-
-    if (propertyError) {
-      toast.error("Failed to update Thana name in Property table");
-      console.error(propertyError);
-      setIsSubmittingThanaNameChange(false)
-      return;
-    }
-
-    toast.success("Thana name updated in Property Table successfully")
-    setIsSubmittingThanaNameChange(false)
-    window.location.reload();
+    setIsSubmittingThanaNameChange(false);
 
   }
 
@@ -533,6 +409,10 @@ export default function Page() {
       district: ""
     })
   }
+  type APIResponse = {
+    success: boolean;
+    message: string;
+  };
 
   const handleNewCredentialChange = async () => {
     setIsCredentialUpdating(true);
@@ -547,60 +427,31 @@ export default function Page() {
       return;
     }
 
-    // 1️⃣ Check if the existing credential exists
-    const { data: targetRows, error: findError } = await supabase
-      .from("officer_table")
-      .select("*")
-      .eq(newCredentialValueStyle, existingCredentialValue);
+    try {
+      const response = await axios.post<APIResponse>("/api/update-credential", {
+        existingCredentialValue,
+        newCredentialValue,
+        newCredentialValueStyle,
+        updatedBy: user.name,
+      });
 
-    if (findError || !targetRows || targetRows.length === 0) {
-      toast.error("Original credential not found");
+      const { success, message } = response.data;
+
+      if (success) {
+        toast.success(message);
+      } else {
+        toast.error(message);
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as APIResponse;
+        toast.error(data?.message || "Server error occurred");
+      } else {
+        toast.error("Unexpected error occurred");
+      }
+    } finally {
       setIsCredentialUpdating(false);
-      return;
     }
-
-    const targetOfficer = targetRows[0];
-
-    // 2️⃣ Check if new credential value is already taken by someone else
-    const { data: conflictRows, error: conflictError } = await supabase
-      .from("officer_table")
-      .select("*")
-      .eq(newCredentialValueStyle, newCredentialValue.toLowerCase());
-
-    if (conflictError) {
-      toast.error("Failed to validate new credential");
-      setIsCredentialUpdating(false);
-      return;
-    }
-
-    const isTakenByAnother = conflictRows.some(
-      (row) => row.id !== targetOfficer.id
-    );
-
-    if (isTakenByAnother) {
-      toast.error("New credential already in use by another officer");
-      setIsCredentialUpdating(false);
-      return;
-    }
-
-    // ✅ Proceed to update
-    const { error: updateError } = await supabase
-      .from("officer_table")
-      .update({
-        [newCredentialValueStyle]: newCredentialValue.toLowerCase(),
-        updated_by: user.name,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", targetOfficer.id); // reliable update filter
-
-    if (updateError) {
-      toast.error("Unable to update credentials");
-      setIsCredentialUpdating(false);
-      return;
-    }
-
-    setIsCredentialUpdating(false);
-    toast.success("Credentials updated successfully");
   };
 
 
