@@ -367,7 +367,7 @@ export default function Page({ params }: PageProps) {
                 {[
                   { label: "Property Number", value: propertyDetails.property_id },
                   { label: "FIR Number", value: propertyDetails.fir_number },
-                  {
+                  { label:"Under Section",
                     value: Array.isArray(propertyDetails.under_section)
                       ? propertyDetails.under_section.join(", ")
                       : propertyDetails.under_section
