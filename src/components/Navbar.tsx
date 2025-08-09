@@ -77,7 +77,7 @@ export default function Navbar() {
           {hasToken && (
             <>
 
-
+              {/* scanner */}
               <button
                 className="hover:underline text-sm md:text-base max-md:text-sm px-2 py-1 rounded-md  border-white text-white border hover:bg-blue-400 max-sm:scale-90 sm:border"
               >
@@ -86,13 +86,7 @@ export default function Navbar() {
                 </Link>
               </button>
 
-
-              <button
-                onClick={handleSignOut}
-                className="text-sm md:text-base max-md:text-sm px-3 py-1 rounded-md max-sm:hidden border-blue-300 text-white border font-medium  hover:bg-blue-400"
-              >
-                Sign Out
-              </button>
+              {/* search */}
               <button
                 onClick={handleSignOut}
                 className="hover:underline text-sm md:text-base max-md:text-sm px-2 py-1 rounded-md  border-white text-white border sm:hidden hover:bg-blue-400 max-sm:scale-90"
@@ -100,7 +94,13 @@ export default function Navbar() {
                 <LogOut strokeWidth={1} />
               </button>
 
-
+              {/* signout */}
+              <button
+                onClick={handleSignOut}
+                className="text-sm md:text-base max-md:text-sm px-3 py-1 rounded-md max-sm:hidden border-blue-300 text-white border font-medium  hover:bg-blue-400"
+              >
+                Sign Out
+              </button>
 
 
             </>

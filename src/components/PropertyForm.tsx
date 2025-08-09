@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
+import { ArrowRightLeft } from "lucide-react";
 
 type PropertyFormData = {
   courtName: string;
@@ -23,6 +24,7 @@ type PropertyFormData = {
   placeOfSeizure: string;
   registerSerialNumber: string;
   typeOfSeizure: string;
+  batchNumber: string;
 };
 
 export default function PropertyForm() {
@@ -39,10 +41,11 @@ export default function PropertyForm() {
   const [offenceCategory, setOffenceCategory] = useState<string>("Body Offence");
   const [customOffenceCategory, setCustomOffenceCategory] = useState<string>("");
   const [sectionInput, setSectionInput] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<{ file: File; type: string }[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<{ url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uuid, setUuid] = useState<string | null>(null);
+  const [routingUUID,setRoutingUUID] = useState("")
   const [user, setUser] = useState({
     email: "",
     name: "",
@@ -53,6 +56,9 @@ export default function PropertyForm() {
   const [racks, setRacks] = useState<string[]>([]);
   const [boxes, setBoxes] = useState<string[]>([]);
   const [thanas, setThanas] = useState<string[]>([]);
+  const [specialPlace, setSpecialPlace] = useState<string>("");
+  const [isSpecialPlace, setIsSpecialPlace] = useState<boolean>(false);
+  const [fileType, setFileType] = useState<string>("image");
 
   const [formData, setFormData] = useState<PropertyFormData>({
     courtName: "",
@@ -70,64 +76,21 @@ export default function PropertyForm() {
     placeOfSeizure: "police station",
     registerSerialNumber: "",
     typeOfSeizure: "unclaimed",
+    batchNumber: ""
   });
 
-  let PropId: string
-
+  let PropId: string;
 
   // Cleanup preview URLs to prevent memory leaks
   useEffect(() => {
     return () => {
-      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      previewUrls.forEach(({ url }) => URL.revokeObjectURL(url));
     };
   }, [previewUrls]);
 
-  // Fetch user data from token
   // Fetch user data and thana data
   useEffect(() => {
     async function fetchInitialData() {
-      // Fetch user data
-      try {
-        const res = await axios.get("/api/get-token", { withCredentials: true });
-        if (res.data.authenticated) {
-          const { name, email, role, thana } = res.data.user;
-          setUser({ name, email, role, thana });
-          if (role === "thana admin") {
-            setFormData(prev => ({ ...prev, policeStation: thana }));
-          }
-        }
-      } catch (error) {
-        console.error("❌ Auth error:", error);
-      }
-
-      // Fetch thana data for admin/super admin
-      if (user.role === "admin" || user.role === "super admin") {
-        const { data, error } = await supabase
-          .from("thana_rack_box_table")
-          .select("thana, racks, boxes");
-        if (error) {
-          console.error("Error fetching thana data:", error.message);
-          toast.error("Failed to load thana data");
-          return;
-        }
-        setThanaData(data);
-        const uniqueThanas = [...new Set(data.map((item) => item.thana))];
-        setThanas(uniqueThanas);
-
-        // Set default policeStation for admin/super admin if not set
-        if (data.length > 0 && !formData.policeStation) {
-          setFormData(prev => ({ ...prev, policeStation: data[0].thana }));
-        }
-      }
-    }
-
-    fetchInitialData();
-  }, [user.role]);
-
-  // Fetch user data and thana data
-  useEffect(() => {
-    async function fetchInitialData() {
-      // Fetch user data
       try {
         const res = await axios.get("/api/get-token", { withCredentials: true });
         if (res.data.authenticated) {
@@ -144,7 +107,6 @@ export default function PropertyForm() {
         toast.error("Failed to authenticate user");
       }
 
-      // Fetch thana data
       try {
         const { data, error } = await supabase
           .from("thana_rack_box_table")
@@ -157,8 +119,6 @@ export default function PropertyForm() {
         setThanaData(data);
         const uniqueThanas = [...new Set(data.map((item) => item.thana))];
         setThanas(uniqueThanas);
-
-        // Set default policeStation for admin/super admin
         if ((user.role === "admin" || user.role === "super admin") && data.length > 0 && !formData.policeStation) {
           setFormData(prev => ({ ...prev, policeStation: data[0].thana }));
         }
@@ -169,7 +129,7 @@ export default function PropertyForm() {
     }
 
     fetchInitialData();
-  }, [user.role, formData.policeStation]); // Include formData.policeStation to handle updates
+  }, [user.role, formData.policeStation]);
 
   // Update racks and boxes based on selected police station
   useEffect(() => {
@@ -217,8 +177,6 @@ export default function PropertyForm() {
     fetchRacksAndBoxes();
   }, [formData.policeStation, thanaData, user.thana]);
 
-
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
       ...prev,
@@ -230,39 +188,56 @@ export default function PropertyForm() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const validImageTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const validPdfType = 'application/pdf';
     const maxSize = 5 * 1024 * 1024; // 5MB
 
-    const validNewFiles = files.filter(
-      file => validTypes.includes(file.type) && file.size <= maxSize
-    );
+    const validNewFiles = files.filter(file => {
+      if (fileType === 'image') {
+        return validImageTypes.includes(file.type) && file.size <= maxSize;
+      } else {
+        return file.type === validPdfType && file.size <= maxSize;
+      }
+    });
 
-    const invalidFiles = files.filter(
-      file => !validTypes.includes(file.type) || file.size > maxSize
-    );
+    const invalidFiles = files.filter(file => {
+      if (fileType === 'image') {
+        return !validImageTypes.includes(file.type) || file.size > maxSize;
+      } else {
+        return file.type !== validPdfType || file.size > maxSize;
+      }
+    });
 
     if (invalidFiles.length > 0) {
-      toast.error('Some files are invalid. Only PNG, JPEG under 5MB allowed.');
+      toast.error(`Invalid files detected. ${fileType === 'image' ? 'Only PNG, JPEG, JPG' : 'Only PDF'} files under 5MB are allowed.`);
     }
 
     const totalFiles = selectedFiles.length + validNewFiles.length;
     if (totalFiles > 10) {
-      toast.error("You can upload a maximum of 10 images.");
+      toast.error("You can upload a maximum of 10 files (images and PDFs combined).");
       return;
     }
 
-    const newPreviews = validNewFiles.map(file => URL.createObjectURL(file));
+    const newFilesWithType = validNewFiles.map(file => ({ file, type: fileType }));
+    const newPreviews = validNewFiles.map(file => ({
+      url: fileType === 'image' ? URL.createObjectURL(file) : file.name,
+      type: fileType
+    }));
 
-    setSelectedFiles(prev => [...prev, ...validNewFiles]);
+    setSelectedFiles(prev => [...prev, ...newFilesWithType]);
     setPreviewUrls(prev => [...prev, ...newPreviews]);
+    toast.success(`${validNewFiles.length} ${fileType === 'image' ? 'image(s)' : 'PDF(s)'} selected.`);
   };
 
   const handleRemoveFile = (indexToRemove: number) => {
     const newFiles = [...selectedFiles];
     const newPreviews = [...previewUrls];
 
+    if (newPreviews[indexToRemove].type === 'image') {
+      URL.revokeObjectURL(newPreviews[indexToRemove].url);
+    }
+
     newFiles.splice(indexToRemove, 1);
-    URL.revokeObjectURL(newPreviews[indexToRemove]);
     newPreviews.splice(indexToRemove, 1);
 
     setSelectedFiles(newFiles);
@@ -292,6 +267,18 @@ export default function PropertyForm() {
       return;
     }
 
+    if (isSpecialPlace) {
+      if (!specialPlace.trim()) {
+        toast.error("Please enter the Special Place");
+        return;
+      }
+    } else {
+      if (!formData.rackNumber.trim() || !formData.boxNumber.trim()) {
+        toast.error("Please enter Rack and Box numbers");
+        return;
+      }
+    }
+
     const finalPlaceOfSeizure = placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure;
     const finalTypeOfSeizure = typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure;
     const finalOffenceCategory = offenceCategory === "Other" ? customOffenceCategory : offenceCategory;
@@ -310,54 +297,57 @@ export default function PropertyForm() {
       formData.description1,
       formData.ioName,
       formData.caseStatus,
-      formData.rackNumber,
-      formData.boxNumber,
       formData.remarks,
       formData.policeStation,
       finalPlaceOfSeizure,
       formData.registerSerialNumber,
       finalTypeOfSeizure,
       user.name,
+      formData.batchNumber,
     ];
 
     const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
     if (isEmpty || selectedFiles.length === 0) {
-      toast.error("Please fill all fields and select at least one image before submitting.");
+      toast.error("Please fill all fields and select at least one file before submitting.");
       return;
     }
 
     setUploading(true);
 
     try {
-      // Upload images
-      const uploadPromises = selectedFiles.map(async (file) => {
+      // Upload files
+      const imageFiles = selectedFiles.filter(f => f.type === 'image').map(f => f.file);
+      const pdfFiles = selectedFiles.filter(f => f.type !== 'image').map(f => f.file);
+
+      const uploadPromises = selectedFiles.map(async ({ file, type }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `image-proof/${fileName}`;
+        const bucket = type === 'image' ? 'property-images/image_proof' : 'property-images/pdf_reports';
+        const filePath = `${bucket}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('property-images')
+          .from(bucket)
           .upload(filePath, file);
 
         if (uploadError) {
-          throw new Error(`Image upload failed: ${uploadError.message}`);
+          throw new Error(`File upload failed: ${uploadError.message}`);
         }
 
         const { data: urlData } = supabase.storage
-          .from('property-images')
+          .from(bucket)
           .getPublicUrl(filePath);
 
-        return urlData.publicUrl;
+        return { url: urlData.publicUrl, type };
       });
 
-      const imageUrls = await Promise.all(uploadPromises);
+      const uploadedFiles = await Promise.all(uploadPromises);
+      const imageUrls = uploadedFiles.filter(f => f.type === 'image').map(f => f.url);
+      const pdfUrls = uploadedFiles.filter(f => f.type !== 'image').map(f => f.url);
+
       const newPropertyId = uuidv4();
       PropId = newPropertyId;
-      setUuid(newPropertyId); // Set uuid state immediately
-
-      const finalDataToPush = {
-
-      }
+      setUuid(formData.firNumber);
+      setRoutingUUID(newPropertyId);
 
       // Update existing row with qr_id
       const { error: updateError } = await supabase
@@ -372,15 +362,17 @@ export default function PropertyForm() {
           description: formData.description1.toLowerCase(),
           name_of_io: formData.ioName.toLowerCase(),
           case_status: formData.caseStatus.toLowerCase(),
-          rack_number: formData.rackNumber.toLowerCase(),
-          box_number: formData.boxNumber.toLowerCase(),
+          rack_number: isSpecialPlace ? "Special Place - " + specialPlace : formData.rackNumber.toLowerCase(),
+          box_number: isSpecialPlace ? "Special Place - " + specialPlace : formData.boxNumber.toLowerCase(),
           remarks: formData.remarks.toLowerCase(),
           police_station: formData.policeStation.toLowerCase(),
           image_url: imageUrls,
+          pdf_urls: pdfUrls,
           place_of_seizure: finalPlaceOfSeizure.toLowerCase(),
           serial_number_from_register: formData.registerSerialNumber.toLowerCase(),
           type_of_seizure: finalTypeOfSeizure.toLowerCase(),
           updated_by: user.name.toLowerCase(),
+          io_batch_number: formData.batchNumber.toLowerCase().trim()
         })
         .eq("qr_id", window.location.href);
 
@@ -396,13 +388,14 @@ export default function PropertyForm() {
         .from("status_logs_table")
         .insert([
           {
-            property_id: newPropertyId, // Use newPropertyId consistently
+            property_id: newPropertyId,
             status: "entry of item",
             status_remarks: formData.remarks.toLowerCase(),
             handling_officer: formData.ioName.toLowerCase(),
-            reason: "Other - Initial Confestication",
+            reason: "Other - Initial Confiscation",
             updated_by: user.name,
             time_of_event: new Date().toISOString(),
+            pdf_url:pdfUrls
           },
         ]);
 
@@ -440,15 +433,20 @@ export default function PropertyForm() {
       placeOfSeizure: "Police Station",
       registerSerialNumber: "",
       typeOfSeizure: "unclaimed",
+      batchNumber: ""
     });
     setSelectedFiles([]);
-    setPreviewUrls([]);
+    setPreviewUrls(prev => {
+      prev.forEach(({ url, type }) => {
+        if (type === 'image') URL.revokeObjectURL(url);
+      });
+      return [];
+    });
+    setFileType("image");
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
-
-
 
   return (
     <>
@@ -483,7 +481,7 @@ export default function PropertyForm() {
                 setIsSubmitted(false);
                 setUuid(null);
                 handleReset();
-                router.push(`/search-property/${uuid}`); // Use uuid state
+                router.push(`/search-property/${routingUUID}`);
               }}
               className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
             >
@@ -491,14 +489,13 @@ export default function PropertyForm() {
             </button>
           </div>
         ) : (
-          <div className={`flex items-center justify-around bg-white w-[80%] max-lg:w-[100%] max-lg:flex-col ${isSubmitted ? "hidden" : "flex"} max-sm:scale-95`}>
-            <div className="min-h-150 max-lg:h-180 w-[75%] flex lg:flex-wrap max-lg:w-full max-lg:flex-col max-md:flex-col max-md:min-h-280 max-md:align-top">
+          <div className={`flex items-center justify-around bg-white w-[80%] max-lg:w-[100%] max-lg:flex-col ${isSubmitted ? "hidden" : "flex"} max-sm:scale-95 min-h-190`}>
+            <div className="min-h-190 max-lg:h-180 w-[75%] flex lg:flex-wrap max-lg:w-full max-lg:flex-col max-md:flex-col max-md:min-h-280 max-md:align-top">
               <form
                 onSubmit={handleSubmit}
                 onReset={handleReset}
-                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 lg:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-180 max-md:pt-8 max-lg:flex-wrap"
+                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8 "
               >
-
                 {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 max-sm:w-70 font-semibold text-gray-700">Police Station:</label>
@@ -563,6 +560,7 @@ export default function PropertyForm() {
                     </select>
                   )}
                 </div>
+                {/* name of court */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Name of Court:</label>
                   <input
@@ -574,6 +572,7 @@ export default function PropertyForm() {
                     onChange={handleChange}
                   />
                 </div>
+                {/* sno from register */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Sno. from register:</label>
                   <input
@@ -585,6 +584,7 @@ export default function PropertyForm() {
                     onChange={handleChange}
                   />
                 </div>
+                {/* fir number */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">FIR Number:</label>
                   <input
@@ -596,6 +596,7 @@ export default function PropertyForm() {
                     onChange={handleChange}
                   />
                 </div>
+                {/* category of offence */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Category of Offence:</label>
                   {offenceCategory === "Other" ? (
@@ -642,6 +643,19 @@ export default function PropertyForm() {
                     </select>
                   )}
                 </div>
+                {/* name of io */}
+                <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Name of IO:</label>
+                  <input
+                    name="ioName"
+                    type="text"
+                    placeholder="Name of IO"
+                    className="text-input flex-1"
+                    value={formData.ioName}
+                    onChange={handleChange}
+                  />
+                </div>
+                {/* under section */}
                 <div className="flex flex-col gap-1 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <div className="flex flex-row items-center w-full">
                     <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Under Section:</label>
@@ -650,7 +664,7 @@ export default function PropertyForm() {
                         name="section"
                         type="text"
                         placeholder="e.g. 302"
-                        className="h-full rounded-md px-1 w-[80%]"
+                        className="h-full rounded-l-md px-1 w-[85%] pl-3"
                         value={sectionInput}
                         onChange={(e) => setSectionInput(e.target.value)}
                       />
@@ -677,7 +691,7 @@ export default function PropertyForm() {
                     {formData.section.map((single, index) => (
                       <span
                         key={index}
-                        className="bg-gray-700 text-white px-2 py-1 rounded-full flex items-center gap-1"
+                        className="bg-gray-200/80 text-black px-2 py-1 rounded-md flex items-center gap-1"
                       >
                         {single}
                         <button
@@ -695,17 +709,20 @@ export default function PropertyForm() {
                     ))}
                   </div>
                 </div>
+
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Date of Seizure:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No:</label>
                   <input
-                    name="seizureDate"
-                    type="date"
+                    name="batchNumber"
+                    type="text"
                     className="text-input flex-1"
-                    value={formData.seizureDate}
+                    value={formData.batchNumber}
                     onChange={handleChange}
                   />
                 </div>
+                {/* description , name of io , case status , type of seizure */}
                 <div className="flex w-full gap-4 max-md:flex-col items-center">
+                  {/* description */}
                   <div className="flex items-start w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
                     <div className="flex items-start w-full">
                       <label className=" max-sm:text-xs max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700">Description:</label>
@@ -718,18 +735,20 @@ export default function PropertyForm() {
                       />
                     </div>
                   </div>
+
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
+                    {/* date of seizure */}
                     <div className="flex items-center">
-                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Name of IO:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Date of Seizure:</label>
                       <input
-                        name="ioName"
-                        type="text"
-                        placeholder="Name of IO"
+                        name="seizureDate"
+                        type="date"
                         className="text-input flex-1"
-                        value={formData.ioName}
+                        value={formData.seizureDate}
                         onChange={handleChange}
                       />
                     </div>
+                    {/* case status */}
                     <div className="flex items-center">
                       <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Case Status:</label>
                       <input
@@ -741,6 +760,7 @@ export default function PropertyForm() {
                         onChange={handleChange}
                       />
                     </div>
+                    {/* type of seizure */}
                     <div className="flex items-center">
                       <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Type of Seizure:</label>
                       {typeOfSeizure === "Other" ? (
@@ -789,14 +809,17 @@ export default function PropertyForm() {
                     </div>
                   </div>
                 </div>
+
+
                 {/* rack number and box number */}
-                <div className="flex w-full gap-4 max-md:flex-col  items-start px-5 max-sm:px-4">
-                  <div className="flex flex-col w-[48%] max-md:w-full h-full justify-between items-center gap-4">
-                    <div className="flex items-center w-full">
-                      <label className="max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-1/2">Rack Number:</label>
+                <div className="flex w-full gap-4 max-md:flex-col items-start px-5 max-sm:px-2">
+                  <div className="flex flex-col w-full max-md:w-full lg:w-[48%] h-full justify-between items-end gap-4 relative">
+                    {/* rack */}
+                    <div className={`${isSpecialPlace ? "hidden" : "flex items-center w-full"}`}>
+                      <label className="max-sm:text-xs max-md:text-sm w-48 max-sm:w-32 font-semibold text-gray-700">Rack Number:</label>
                       <select
                         name="rackNumber"
-                        className="w-100 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 max-sm:w-1/2"
+                        className="flex-1 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-md:text-sm max-xl:text-sm max-sm:text-xs"
                         value={formData.rackNumber}
                         onChange={handleChange}
                       >
@@ -809,11 +832,13 @@ export default function PropertyForm() {
                         )}
                       </select>
                     </div>
-                    <div className="flex items-center w-full">
-                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-1/2">Box Number:</label>
+
+                    {/* box */}
+                    <div className={`${isSpecialPlace ? "hidden" : "flex items-center w-full"}`}>
+                      <label className="max-sm:text-xs max-md:text-sm w-48 max-sm:w-32 font-semibold text-gray-700">Box Number:</label>
                       <select
                         name="boxNumber"
-                        className="w-100 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 max-sm:w-1/2"
+                        className="flex-1 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-md:text-sm max-xl:text-sm max-sm:text-xs"
                         value={formData.boxNumber}
                         onChange={handleChange}
                       >
@@ -826,32 +851,52 @@ export default function PropertyForm() {
                         )}
                       </select>
                     </div>
-                  </div>
 
-                  <div className="flex items-start justify-between gap-2 w-[48%] max-md:w-[80%] max-sm:w-[90%] flex-col">
-                    <div className="flex items-start justify-between w-full">
-                      <label className=" max-sm:text-xs max-md:text-sm w-48 max-md:w-36 pt-2 font-semibold text-gray-700 max-sm:w-[40%]">Remarks:</label>
+                    {/* specialPlace */}
+                    <div className={`${isSpecialPlace ? "flex items-center w-full" : "hidden"}`}>
+                      <label className="max-sm:text-xs max-md:text-sm w-48 max-sm:w-32 font-semibold text-gray-700">Location Info:</label>
                       <textarea
-                        name="remarks"
-                        placeholder="Remarks about Property"
-                        className="flex-1 h-35 w-48 rounded-md px-3 py-2 border border-gray-300 resize-none max-sm:w-[50%]"
-                        value={formData.remarks}
-                        onChange={handleChange}
+                        name="boxNumber"
+                        className="flex-1 h-22 text-black rounded-lg px-3 max-md:px-2 border border-gray-300 max-md:text-sm max-xl:text-sm max-sm:text-xs py-2"
+                        placeholder="Describe the location"
+                        value={specialPlace}
+                        onChange={(e) => { setSpecialPlace(e.target.value) }}
                       />
                     </div>
+
+                    {/* Toggle button */}
+                    <div className="h-10 w-40 max-sm:w-32 bg-blue-50 rounded-md flex items-center justify-center gap-2 max-sm:gap-1 text-blue-700 hover:bg-blue-300 cursor-pointer transition-all border-blue-400/80 border text-sm max-sm:text-xs"
+                      onClick={() => setIsSpecialPlace(!isSpecialPlace)}>
+                      <p>{isSpecialPlace ? "Rack n Box" : "Special Place"}</p>
+                      <ArrowRightLeft className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  {/* Remarks section - Fixed structure */}
+                  <div className="flex w-full max-md:flex-row lg:w-[48%] justify-around">
+                    <label className="max-sm:text-xs max-md:text-sm font-semibold text-gray-700 max-md:w-[40%] md:w-48">Remarks:</label>
+                    <textarea
+                      name="remarks"
+                      placeholder="Remarks about Property"
+                      className="w-full h-24 max-sm:h-20 rounded-md px-3 py-2 border border-gray-300 resize-none max-sm:text-xs max-md:w-[60%]"
+                      value={formData.remarks}
+                      onChange={handleChange}
+                    />
                   </div>
                 </div>
-                <div className="flex justify-center gap-3 w-full mt-4 max-lg:mt-0">
+
+                {/* Submit and Reset buttons - Fixed positioning */}
+                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6">
                   <button
                     type="submit"
                     disabled={uploading}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400"
+                    className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
                   >
                     {uploading ? 'Submitting...' : 'Submit'}
                   </button>
                   <button
                     type="reset"
-                    className="text-blue-700 border-blue-500 border px-4 py-2 rounded-md font-semibold hover:bg-gray-200"
+                    className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
                   >
                     Reset
                   </button>
@@ -859,10 +904,25 @@ export default function PropertyForm() {
               </form>
             </div>
             <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-lg:mt-4">
-              <Image height={84} width={54} src={'/e-malkhana.png'} alt="E-Malkhana Logo" />
+              <div className="flex flex-col gap-2 w-full">
+                <label className="text-sm font-semibold text-gray-700">File Type:</label>
+                <select
+                  value={fileType}
+                  onChange={(e) => setFileType(e.target.value)}
+                  className="w-full h-10 text-black rounded-lg px-3 border border-gray-400 text-sm"
+                >
+                  <option value="image">Image</option>
+                  <option value="general diary entry">General Diary Entry</option>
+                  <option value="duty certificate">Duty Certificate</option>
+                  <option value="report">Report</option>
+                  <option value="screwtany">Screwtany</option>
+                  <option value="supplementary report">Supplementary Report</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/jpg"
+                accept={fileType === 'image' ? 'image/png,image/jpeg,image/jpg' : 'application/pdf'}
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 multiple
@@ -870,21 +930,27 @@ export default function PropertyForm() {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700"
+                className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700 w-full"
               >
-                Choose Images
+                Choose {fileType === 'image' ? 'Images' : 'PDFs'} ({selectedFiles.length}/10)
               </button>
               {previewUrls.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {previewUrls.map((url, index) => (
+                <div className="mt-4 grid grid-cols-2 gap-2 w-full">
+                  {previewUrls.map(({ url, type }, index) => (
                     <div key={index} className="relative w-[60px] h-[60px]">
-                      <Image
-                        src={url}
-                        alt={`Preview ${index + 1}`}
-                        width={60}
-                        height={60}
-                        className="rounded-md border border-gray-300 shadow"
-                      />
+                      {type === 'image' ? (
+                        <Image
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          width={60}
+                          height={60}
+                          className="rounded-md border border-gray-300 shadow"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center w-[60px] h-[60px] bg-gray-200 rounded-md border border-gray-300 shadow text-xs text-gray-600 truncate p-1">
+                          {url}
+                        </div>
+                      )}
                       <button
                         onClick={() => handleRemoveFile(index)}
                         className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center hover:bg-red-700"
@@ -898,19 +964,19 @@ export default function PropertyForm() {
                 </div>
               ) : (
                 <div className="mt-4 w-[160px] h-[160px] border border-dashed border-gray-400 rounded-md flex items-center justify-center text-sm text-gray-500">
-                  No images selected
+                  No {fileType === 'image' ? 'images' : 'PDFs'} selected
                 </div>
               )}
             </div>
           </div>
         )
       ) : (
-        <div className="h-150 p-5 justify-center items-center">
+        <div className="min-h-170 p-5 justify-center items-center">
           <div className="rounded-lg bg-white py-5 max-w-100 px-8 flex flex-col items-center gap-8 shadow-lg h-full transition-all">
             <h1 className="text-red-700 font-bold text-3xl text-center transition-all">Access Denied</h1>
-            <p className="text-center font-medium transition-all">We are really sorry, you dont have access to adding new properties.</p>
+            <p className="text-center font-medium transition-all">We are really sorry, you don&apos;t have access to adding new properties.</p>
             <p className="text-center text-sm text-red-700 transition-all">The rights are strictly under Thana Admin / Admin</p>
-            <p className="bg-gray-300 p-2 rounded-md transition-all">Your role : {user.role}</p>
+            <p className="bg-gray-300 p-2 rounded-md transition-all">Your role: {user.role}</p>
             <div className="bg-gray-300 h-0.5 text-gray-300 w-full" />
             <p className="text-center font-medium transition-all">However you can still look for properties</p>
             <button
@@ -924,5 +990,4 @@ export default function PropertyForm() {
       )}
     </>
   );
-
 }
