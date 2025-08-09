@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, Eye, EyeClosed } from "lucide-react";
 
 type PropertyFormData = {
   courtName: string;
@@ -45,13 +45,15 @@ export default function PropertyForm() {
   const [previewUrls, setPreviewUrls] = useState<{ url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uuid, setUuid] = useState<string | null>(null);
-  const [routingUUID,setRoutingUUID] = useState("")
+  const [routingUUID, setRoutingUUID] = useState("")
   const [user, setUser] = useState({
     email: "",
     name: "",
     role: "",
     thana: "",
   });
+  const [showSections, setShowSections] = useState(false);
+
   const [thanaData, setThanaData] = useState<{ thana: string; racks: string[]; boxes: string[] }[]>([]);
   const [racks, setRacks] = useState<string[]>([]);
   const [boxes, setBoxes] = useState<string[]>([]);
@@ -395,7 +397,7 @@ export default function PropertyForm() {
             reason: "Other - Initial Confiscation",
             updated_by: user.name,
             time_of_event: new Date().toISOString(),
-            pdf_url:pdfUrls
+            pdf_url: pdfUrls
           },
         ]);
 
@@ -494,7 +496,7 @@ export default function PropertyForm() {
               <form
                 onSubmit={handleSubmit}
                 onReset={handleReset}
-                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8  overflow-y-scroll"
+                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8 overflow-y-scroll"
               >
                 {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
@@ -655,11 +657,13 @@ export default function PropertyForm() {
                     onChange={handleChange}
                   />
                 </div>
-                {/* under section */}
+                {/* Under section */}
                 <div className="flex flex-col gap-1 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <div className="flex flex-row items-center w-full">
-                    <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Under Section:</label>
-                    <div className="w-100 h-10 text-black rounded-lg border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 flex items-center justify-between overflow-hidden">
+                    <label className="max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-[40%]">
+                      Under Section:
+                    </label>
+                    <div className="w-100 h-10 text-black rounded-lg border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 flex items-center justify-between overflow-hidden max-sm:w-[50%]">
                       <input
                         name="section"
                         type="text"
@@ -670,7 +674,7 @@ export default function PropertyForm() {
                       />
                       <button
                         type="button"
-                        className="h-full p-2 bg-gray-50 w-[15%]"
+                        className="h-full p-2 bg-gray-50 w-[15%] max-sm:w-[25%] hover:bg-gray-200"
                         onClick={() => {
                           if (sectionInput.trim() === "") return;
                           const newSection = sectionInput.trim();
@@ -687,28 +691,50 @@ export default function PropertyForm() {
                       </button>
                     </div>
                   </div>
-                  <div className="w-100 text-white overflow-hidden max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-1 flex items-center justify-end ">
-                    {formData.section.map((single, index) => (
-                      <span
-                        key={index}
-                        className="bg-gray-200/80 text-black px-2 py-1 rounded-md flex items-center gap-1"
-                      >
-                        {single}
-                        <button
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              section: prev.section.filter((_, i) => i !== index)
-                            }));
-                          }}
-                          className="text-red-400 hover:text-red-600 ml-1 font-bold"
-                        >
-                          &times;
-                        </button>
-                      </span>
-                    ))}
+
+                  {/* Eye button + floating sections */}
+                  <div className="flex justify-end relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowSections((prev) => !prev)}
+                      className="p-1 text-gray-600 hover:text-gray-800"
+                    >
+                      {showSections?<EyeClosed/>:<Eye />}
+
+                    </button>
+
+                    {showSections && (
+                      <div className="absolute bottom-full mb-2 right-0 bg-white border border-gray-300 rounded-md shadow-lg p-2 z-50 max-w-xs">
+                        {formData.section.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {formData.section.map((single, index) => (
+                              <span
+                                key={index}
+                                className="bg-gray-200/80 text-black px-2 py-1 rounded-md flex items-center gap-1"
+                              >
+                                {single}
+                                <button
+                                  onClick={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      section: prev.section.filter((_, i) => i !== index)
+                                    }));
+                                  }}
+                                  className="text-red-400 hover:text-red-600 ml-1 font-bold"
+                                >
+                                  &times;
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-sm">No sections added</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
+
 
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No:</label>
@@ -971,21 +997,21 @@ export default function PropertyForm() {
 
 
             {/* lower Submit and Reset buttons - Fixed positioning */}
-                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 py-5 bg-transparent md:hidden">
-                  <button
-                    type="submit"
-                    disabled={uploading}
-                    className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
-                  >
-                    {uploading ? 'Submitting...' : 'Submit'}
-                  </button>
-                  <button
-                    type="reset"
-                    className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
-                  >
-                    Reset
-                  </button>
-                </div>
+            <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 py-5 bg-transparent md:hidden">
+              <button
+                type="submit"
+                disabled={uploading}
+                className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+              >
+                {uploading ? 'Submitting...' : 'Submit'}
+              </button>
+              <button
+                type="reset"
+                className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         )
       ) : (
