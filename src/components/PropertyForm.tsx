@@ -246,9 +246,16 @@ export default function PropertyForm() {
     setPreviewUrls(newPreviews);
   };
 
-  const handleSubmit = async () => {
-    console.log("Form Data Section:", formData.section);
-    console.log(formData);
+  // Fixed handleSubmit with better error handling and mobile compatibility
+  const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default form submission if event exists
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    console.log("Submit button clicked - Form Data Section:", formData.section);
+    console.log("Complete form data:", formData);
 
     if (user.name === "") {
       toast.error("Not logged in");
@@ -317,9 +324,6 @@ export default function PropertyForm() {
 
     try {
       // Upload files
-      const imageFiles = selectedFiles.filter(f => f.type === 'image').map(f => f.file);
-      const pdfFiles = selectedFiles.filter(f => f.type !== 'image').map(f => f.file);
-
       const uploadPromises = selectedFiles.map(async ({ file, type }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
@@ -417,7 +421,16 @@ export default function PropertyForm() {
     }
   };
 
-  const handleReset = () => {
+  // Fixed handleReset with better mobile compatibility
+  const handleReset = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default form submission if event exists
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    console.log("Reset button clicked");
+
     setFormData({
       courtName: "",
       firNumber: "",
@@ -447,6 +460,7 @@ export default function PropertyForm() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    toast.success("Form reset successfully");
   };
 
   return (
@@ -479,9 +493,6 @@ export default function PropertyForm() {
             </p>
             <button
               onClick={() => {
-                setIsSubmitted(false);
-                setUuid(null);
-                handleReset();
                 router.push(`/search-property/${routingUUID}`);
               }}
               className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
@@ -908,19 +919,19 @@ export default function PropertyForm() {
                   </div>
                 </div>
 
-                {/* upper Submit and Reset buttons - Fixed positioning */}
-                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 max-md:hidden">
+                {/* Desktop Submit and Reset buttons */}
+                <div className="hidden md:flex justify-center gap-3 w-full px-5 max-sm:px-2 lg:mt-6">
                   <button
+                    type="button"
                     disabled={uploading}
-                    className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+                    className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm transition-colors touch-manipulation"
                     onClick={handleSubmit}
                   >
                     {uploading ? 'Submitting...' : 'Submit'}
                   </button>
                   <button
-                    type="reset"
-                    className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
-                    
+                    type="button"
+                    className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm transition-colors touch-manipulation"
                     onClick={handleReset}
                   >
                     Reset
@@ -954,8 +965,9 @@ export default function PropertyForm() {
                 className="hidden"
               />
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700 w-full"
+                className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700 w-full touch-manipulation"
               >
                 Choose {fileType === 'image' ? 'Images' : 'PDFs'} ({selectedFiles.length}/10)
               </button>
@@ -977,10 +989,10 @@ export default function PropertyForm() {
                         </div>
                       )}
                       <button
-                        onClick={() => handleRemoveFile(index)}
-                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center hover:bg-red-700"
-                        title="Remove"
                         type="button"
+                        onClick={() => handleRemoveFile(index)}
+                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center hover:bg-red-700 touch-manipulation"
+                        title="Remove"
                       >
                         X
                       </button>
@@ -994,19 +1006,22 @@ export default function PropertyForm() {
               )}
             </div>
 
-
-            {/* lower Submit and Reset buttons - Fixed positioning */}
-            <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 py-5 bg-transparent md:hidden">
+            {/* Mobile Submit and Reset buttons - Fixed positioning and functionality */}
+            <div className="flex md:hidden justify-center gap-3 w-full px-5 max-sm:px-2 py-5 bg-transparent">
               <button
+                type="button"
                 disabled={uploading}
-                className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+                className="bg-blue-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 text-sm transition-colors touch-manipulation min-h-[44px] min-w-[44px]"
                 onClick={handleSubmit}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 {uploading ? 'Submitting...' : 'Submit'}
               </button>
               <button
-                className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
+                type="button"
+                className="text-blue-700 border-blue-500 border px-6 py-3 rounded-md font-semibold hover:bg-gray-200 text-sm transition-colors touch-manipulation min-h-[44px] min-w-[44px]"
                 onClick={handleReset}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 Reset
               </button>
