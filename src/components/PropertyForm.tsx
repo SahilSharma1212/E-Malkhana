@@ -699,7 +699,7 @@ export default function PropertyForm() {
                       onClick={() => setShowSections((prev) => !prev)}
                       className="p-1 text-gray-600 hover:text-gray-800"
                     >
-                      {showSections?<EyeClosed/>:<Eye />}
+                      {showSections?<Eye />:<EyeClosed/>}
 
                     </button>
 
