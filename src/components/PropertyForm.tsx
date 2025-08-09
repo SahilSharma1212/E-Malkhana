@@ -246,8 +246,7 @@ export default function PropertyForm() {
     setPreviewUrls(newPreviews);
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     console.log("Form Data Section:", formData.section);
     console.log(formData);
 
@@ -493,10 +492,8 @@ export default function PropertyForm() {
         ) : (
           <div className={`flex items-center justify-around bg-white w-[80%] max-lg:w-[100%] max-lg:flex-col ${isSubmitted ? "hidden" : "flex"} max-sm:scale-95 min-h-190`}>
             <div className="min-h-190 max-lg:h-180 w-[75%] flex lg:flex-wrap max-lg:w-full max-lg:flex-col max-md:flex-col max-md:min-h-280 max-md:align-top">
-              <form
-                onSubmit={handleSubmit}
-                onReset={handleReset}
-                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8 overflow-y-scroll"
+              <div
+                className="w-full h-auto flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:pt-8"
               >
                 {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
@@ -914,20 +911,22 @@ export default function PropertyForm() {
                 {/* upper Submit and Reset buttons - Fixed positioning */}
                 <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 max-md:hidden">
                   <button
-                    type="submit"
                     disabled={uploading}
                     className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+                    onClick={handleSubmit}
                   >
                     {uploading ? 'Submitting...' : 'Submit'}
                   </button>
                   <button
                     type="reset"
                     className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
+                    
+                    onClick={handleReset}
                   >
                     Reset
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
             <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-md:rounded-none max-lg:mt-4">
               <div className="flex flex-col gap-2 w-full">
@@ -999,15 +998,15 @@ export default function PropertyForm() {
             {/* lower Submit and Reset buttons - Fixed positioning */}
             <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 py-5 bg-transparent md:hidden">
               <button
-                type="submit"
                 disabled={uploading}
                 className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+                onClick={handleSubmit}
               >
                 {uploading ? 'Submitting...' : 'Submit'}
               </button>
               <button
-                type="reset"
                 className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
+                onClick={handleReset}
               >
                 Reset
               </button>
