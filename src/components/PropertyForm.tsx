@@ -180,9 +180,14 @@ export default function PropertyForm() {
   }, [formData.policeStation, thanaData, user.thana]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    // Normalize the text to handle Unicode properly (important for Hindi)
+    const normalizedValue = value.normalize('NFC');
+    
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: normalizedValue
     }));
   };
 
@@ -296,27 +301,57 @@ export default function PropertyForm() {
       return;
     }
 
-    const requiredFields = [
-      formData.courtName,
-      formData.firNumber,
-      finalOffenceCategory,
-      formData.section.length === 0 ? "" : "valid",
-      formData.seizureDate,
-      formData.description1,
-      formData.ioName,
-      formData.caseStatus,
-      formData.remarks,
-      formData.policeStation,
-      finalPlaceOfSeizure,
-      formData.registerSerialNumber,
-      finalTypeOfSeizure,
-      user.name,
-      formData.batchNumber,
+    // Enhanced field validation with specific field names and Hindi support
+    const fieldValidation = [
+      { value: formData.courtName, name: "Name of Court" },
+      { value: formData.firNumber, name: "FIR Number" },
+      { value: finalOffenceCategory, name: "Category of Offence" },
+      { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
+      { value: formData.seizureDate, name: "Date of Seizure" },
+      { value: formData.description1, name: "Description" },
+      { value: formData.ioName, name: "Name of IO" },
+      { value: formData.caseStatus, name: "Case Status" },
+      { value: formData.remarks, name: "Remarks" },
+      { value: formData.policeStation, name: "Police Station" },
+      { value: finalPlaceOfSeizure, name: "Place Of Seizure" },
+      { value: formData.registerSerialNumber, name: "Serial Number from Register" },
+      { value: finalTypeOfSeizure, name: "Type of Seizure" },
+      { value: user.name, name: "User Authentication" },
+      // Batch Number removed from required fields - now optional
     ];
 
-    const isEmpty = requiredFields.some(field => !field || field.trim?.() === '');
-    if (isEmpty || selectedFiles.length === 0) {
-      toast.error("Please fill all fields and select at least one file before submitting.");
+    // Find missing fields with better Unicode handling
+    const missingFields = fieldValidation.filter(field => {
+      if (!field.value) return true;
+      // Normalize and trim the value to handle Hindi text properly
+      const normalizedValue = field.value.toString().normalize('NFC').trim();
+      return normalizedValue === '';
+    });
+    
+    // Check for missing files - only images are required, PDFs are optional
+    const imageFiles = selectedFiles.filter(f => f.type === 'image');
+    const missingFiles = imageFiles.length === 0;
+
+    // Show specific error messages
+    if (missingFields.length > 0 || missingFiles) {
+      let errorMessage = "";
+      
+      if (missingFields.length === 1) {
+        errorMessage = `Please fill the "${missingFields[0].name}" field`;
+      } else if (missingFields.length > 1) {
+        errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
+      }
+      
+      if (missingFiles) {
+        if (errorMessage) {
+          errorMessage += " and select at least one image";
+        } else {
+          errorMessage = "Please select at least one image";
+        }
+      }
+      
+      errorMessage += " before submitting.";
+      toast.error(errorMessage);
       return;
     }
 
@@ -354,30 +389,33 @@ export default function PropertyForm() {
       setUuid(formData.firNumber);
       setRoutingUUID(newPropertyId);
 
-      // Update existing row with qr_id
+      // Normalize all text data before saving to ensure proper Unicode encoding
+      const normalizeText = (text: string) => text.normalize('NFC').trim();
+      
+      // Update existing row with qr_id - with proper Unicode handling
       const { error: updateError } = await supabase
         .from("property_table")
         .update({
           property_id: newPropertyId.toLowerCase(),
-          name_of_court: formData.courtName.toLowerCase(),
-          fir_number: formData.firNumber.toLowerCase(),
-          category_of_offence: finalOffenceCategory.toLowerCase(),
-          under_section: formData.section.map((item) => item.toLowerCase()),
+          name_of_court: normalizeText(formData.courtName.toLowerCase()),
+          fir_number: normalizeText(formData.firNumber.toLowerCase()),
+          category_of_offence: normalizeText(finalOffenceCategory.toLowerCase()),
+          under_section: formData.section.map((item) => normalizeText(item.toLowerCase())),
           date_of_seizure: formData.seizureDate.toLowerCase(),
-          description: formData.description1.toLowerCase(),
-          name_of_io: formData.ioName.toLowerCase(),
-          case_status: formData.caseStatus.toLowerCase(),
-          rack_number: isSpecialPlace ? "Special Place - " + specialPlace : formData.rackNumber.toLowerCase(),
-          box_number: isSpecialPlace ? "Special Place - " + specialPlace : formData.boxNumber.toLowerCase(),
-          remarks: formData.remarks.toLowerCase(),
-          police_station: formData.policeStation.toLowerCase(),
+          description: normalizeText(formData.description1.toLowerCase()),
+          name_of_io: normalizeText(formData.ioName.toLowerCase()),
+          case_status: normalizeText(formData.caseStatus.toLowerCase()),
+          rack_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.rackNumber.toLowerCase(),
+          box_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.boxNumber.toLowerCase(),
+          remarks: normalizeText(formData.remarks.toLowerCase()),
+          police_station: normalizeText(formData.policeStation.toLowerCase()),
           image_url: imageUrls,
           pdf_urls: pdfUrls,
-          place_of_seizure: finalPlaceOfSeizure.toLowerCase(),
-          serial_number_from_register: formData.registerSerialNumber.toLowerCase(),
-          type_of_seizure: finalTypeOfSeizure.toLowerCase(),
-          updated_by: user.name.toLowerCase(),
-          io_batch_number: formData.batchNumber.toLowerCase().trim()
+          place_of_seizure: normalizeText(finalPlaceOfSeizure.toLowerCase()),
+          serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
+          type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
+          updated_by: normalizeText(user.name.toLowerCase()),
+          io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : null
         })
         .eq("qr_id", window.location.href);
 
@@ -388,17 +426,17 @@ export default function PropertyForm() {
         return;
       }
 
-      // Insert into status_logs_table
+      // Insert into status_logs_table - with proper Unicode handling
       const { error: statusError } = await supabase
         .from("status_logs_table")
         .insert([
           {
             property_id: newPropertyId,
             status: "entry of item",
-            status_remarks: formData.remarks.toLowerCase(),
-            handling_officer: formData.ioName.toLowerCase(),
+            status_remarks: normalizeText(formData.remarks.toLowerCase()),
+            handling_officer: normalizeText(formData.ioName.toLowerCase()),
             reason: "Other - Initial Confiscation",
-            updated_by: user.name,
+            updated_by: normalizeText(user.name),
             time_of_event: new Date().toISOString(),
             pdf_url: pdfUrls
           },
@@ -493,6 +531,9 @@ export default function PropertyForm() {
             </p>
             <button
               onClick={() => {
+                setIsSubmitted(false);
+                setUuid(null);
+                handleReset();
                 router.push(`/search-property/${routingUUID}`);
               }}
               className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
@@ -580,6 +621,9 @@ export default function PropertyForm() {
                     className="text-input flex-1"
                     value={formData.courtName}
                     onChange={handleChange}
+                    lang="hi"
+                    autoComplete="off"
+                    spellCheck="false"
                   />
                 </div>
                 {/* sno from register */}
@@ -701,7 +745,8 @@ export default function PropertyForm() {
                   </div>
 
                   {/* Eye button + floating sections */}
-                  <div className="flex justify-end relative">
+                  <div className="flex justify-end items-center relative gap-2">
+                    <p className={`text-sm ${formData.section.length > 0 ?"text-green-400" : "text-red-400"}`}>Total : {formData.section.length}</p>
                     <button
                       type="button"
                       onClick={() => setShowSections((prev) => !prev)}
@@ -745,14 +790,14 @@ export default function PropertyForm() {
 
 
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No <span className="text-gray-500 text-xs">(Optional)</span>:</label>
                   <input
                     name="batchNumber"
-                    placeholder="Batch No."
                     type="text"
                     className="text-input flex-1"
                     value={formData.batchNumber}
                     onChange={handleChange}
+                    placeholder="(optional)"
                   />
                 </div>
                 {/* description , name of io , case status , type of seizure */}
@@ -948,13 +993,13 @@ export default function PropertyForm() {
                   onChange={(e) => setFileType(e.target.value)}
                   className="w-full h-10 text-black rounded-lg px-3 border border-gray-400 text-sm"
                 >
-                  <option value="image">Image</option>
-                  <option value="general diary entry">General Diary Entry</option>
-                  <option value="duty certificate">Duty Certificate</option>
-                  <option value="report">Report</option>
-                  <option value="screwtany">Screwtany</option>
-                  <option value="supplementary report">Supplementary Report</option>
-                  <option value="other">Other</option>
+                  <option value="image">Image (Required)</option>
+                  <option value="general diary entry">General Diary Entry (Optional)</option>
+                  <option value="duty certificate">Duty Certificate (Optional)</option>
+                  <option value="report">Report (Optional)</option>
+                  <option value="screwtany">Screwtany (Optional)</option>
+                  <option value="supplementary report">Supplementary Report (Optional)</option>
+                  <option value="other">Other (Optional)</option>
                 </select>
               </div>
               <input
@@ -970,7 +1015,7 @@ export default function PropertyForm() {
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-2 bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700 w-full touch-manipulation"
               >
-                Choose {fileType === 'image' ? 'Images' : 'PDFs'} ({selectedFiles.length}/10)
+                Choose {fileType === 'image' ? 'Images (Required)' : 'PDFs (Optional)'} ({selectedFiles.length}/10)
               </button>
               {previewUrls.length > 0 ? (
                 <div className="mt-4 grid grid-cols-2 gap-2 w-full">
@@ -1001,8 +1046,16 @@ export default function PropertyForm() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 w-[160px] h-[160px] border border-dashed border-gray-400 rounded-md flex items-center justify-center text-sm text-gray-500">
-                  No {fileType === 'image' ? 'images' : 'PDFs'} selected
+                <div className="mt-4 w-[160px] h-[160px] border border-dashed border-gray-400 rounded-md flex items-center justify-center text-sm text-gray-500 text-center">
+                  {fileType === 'image' ? (
+                    <div > <p>No images selected</p>
+                    <p className="text-xs text-red-500">(Required)</p>
+                    </div>
+                  ) : (
+                    <div > <p>No PDFs selected</p>
+                    <p className="text-xs text-green-500">(Optional)</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
