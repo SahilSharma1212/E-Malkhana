@@ -494,7 +494,7 @@ export default function PropertyForm() {
               <form
                 onSubmit={handleSubmit}
                 onReset={handleReset}
-                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8 "
+                className="w-full h-full flex items-center justify-start px-2 py-4 pl-4 gap-3 md:flex-wrap max-lg:w-full max-md:flex-col max-md:min-h-190 max-md:pt-8  overflow-y-scroll"
               >
                 {/* police station */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
@@ -885,8 +885,8 @@ export default function PropertyForm() {
                   </div>
                 </div>
 
-                {/* Submit and Reset buttons - Fixed positioning */}
-                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6">
+                {/* upper Submit and Reset buttons - Fixed positioning */}
+                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 max-md:hidden">
                   <button
                     type="submit"
                     disabled={uploading}
@@ -903,7 +903,7 @@ export default function PropertyForm() {
                 </div>
               </form>
             </div>
-            <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-lg:mt-4">
+            <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-md:rounded-none max-lg:mt-4">
               <div className="flex flex-col gap-2 w-full">
                 <label className="text-sm font-semibold text-gray-700">File Type:</label>
                 <select
@@ -968,6 +968,24 @@ export default function PropertyForm() {
                 </div>
               )}
             </div>
+
+
+            {/* lower Submit and Reset buttons - Fixed positioning */}
+                <div className="flex justify-center gap-3 w-full max-sm:mt-0 px-5 max-sm:px-2 lg:mt-6 py-5 bg-transparent md:hidden">
+                  <button
+                    type="submit"
+                    disabled={uploading}
+                    className="bg-blue-500 text-white px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-blue-600 active:bg-blue-600 disabled:bg-gray-400 max-sm:text-sm"
+                  >
+                    {uploading ? 'Submitting...' : 'Submit'}
+                  </button>
+                  <button
+                    type="reset"
+                    className="text-blue-700 border-blue-500 border px-6 py-2 max-sm:px-4 max-sm:py-2 rounded-md font-semibold hover:bg-gray-200 max-sm:text-sm"
+                  >
+                    Reset
+                  </button>
+                </div>
           </div>
         )
       ) : (

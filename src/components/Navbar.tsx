@@ -51,7 +51,7 @@ export default function Navbar() {
 
   return (
     <nav className="w-full bg-blue-100 text-white shadow-md py-2 px-1.5">
-      <div className="w-full mx-auto px-4 py-3 flex items-center justify-between bg-blue-500 rounded-sm pr-10">
+      <div className="w-full mx-auto px-4 py-3 flex items-center justify-between bg-blue-500 rounded-sm pr-10 max-sm:pr-4">
         <Link href={'/admin'} className="flex justify-center gap-4 items-center">
           <div className="flex items-center justify-center">
             <Image
@@ -68,7 +68,7 @@ export default function Navbar() {
             E-Malkhana System
           </div>
           <div className="text-xl sm:hidden max-md:text-base font-bold tracking-wide max-sm:visible">
-            E-Malkhana
+            Malkhana
           </div>
         </Link>
 
