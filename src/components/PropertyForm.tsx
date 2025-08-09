@@ -748,6 +748,7 @@ export default function PropertyForm() {
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No:</label>
                   <input
                     name="batchNumber"
+                    placeholder="Batch No."
                     type="text"
                     className="text-input flex-1"
                     value={formData.batchNumber}
