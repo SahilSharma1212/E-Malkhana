@@ -12,16 +12,20 @@ type SearchRequest = {
   };
 };
 
-
 export async function POST(req: NextRequest) {
   try {
     const body: SearchRequest = await req.json();
     const { searchValue, searchCategory, column, userData } = body;
 
-    if (!searchValue || !searchCategory || !column || !userData?.role || !userData?.thana) {
+    if (
+      !searchValue ||
+      !searchCategory ||
+      !column ||
+      !userData?.role ||
+      !userData?.thana
+    ) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
-
 
     let query = supabase
       .from("property_table")
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
           ])
           .neq("category_of_offence", "");
       } else {
-        query = query.eq("category_of_offence", searchValue);
+        query = query.ilike("category_of_offence", `%${searchValue}%`);
       }
     } else if (searchCategory === "io") {
       query = query.ilike("name_of_io", `%${searchValue}%`);
@@ -54,7 +58,7 @@ export async function POST(req: NextRequest) {
         .gte("created_at", from.toISOString())
         .lt("created_at", to.toISOString());
     } else {
-      query = query.eq(column, searchValue.trim());
+      query = query.ilike(column, `%${searchValue.trim()}%`);
     }
 
     if (userData.role === "viewer" || userData.role === "thana admin") {
@@ -69,6 +73,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data }, { status: 200 });
   } catch (err) {
-    return NextResponse.json({ error: err || "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: err || "Unknown error" },
+      { status: 500 }
+    );
   }
 }

@@ -63,6 +63,8 @@ const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: st
   return <Document>{pages}</Document>;
 };
 
+
+
 export default function Page() {
   const [qrLoading, setQRLoading] = useState(false);
   const [user, setUser] = useState({
@@ -121,6 +123,8 @@ export default function Page() {
   const [existingCredentialValue, setExistingCredentialValue] = useState("");
   const [newCredentialValue, setNewCredentialValue] = useState("")
   const [isCredentialsUpdating, setIsCredentialUpdating] = useState(false);
+
+  const [propertyIdToBeDeleted, setPropertyIdToBeDeleted] = useState("")
 
   useEffect(() => {
     const handleViewData = async () => {
@@ -453,6 +457,178 @@ export default function Page() {
       setIsCredentialUpdating(false);
     }
   };
+
+const clearPropertyRecords = async () => {
+  // Input validation
+  if (!propertyIdToBeDeleted.trim()) {
+    toast.error("Cannot Delete Empty ID");
+    return;
+  }
+
+  const propertyId = propertyIdToBeDeleted.trim().toLowerCase();
+
+  try {
+    // Step 1: Check if property exists and fetch file URLs
+    const { data: propertyData, error: fetchError } = await supabase
+      .from("property_table")
+      .select("property_id, image_url, pdf_urls")
+      .eq("property_id", propertyId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        toast.error("Property ID not found");
+        return;
+      }
+      console.error("Error fetching property:", fetchError);
+      toast.error("Error checking property existence");
+      return;
+    }
+
+    if (!propertyData || !propertyData.property_id) {
+      toast.error("Property ID not found or already deleted");
+      return;
+    }
+
+    console.log("Property found:", propertyData);
+
+    // Step 2: Extract file URLs from property table
+    const allUrls = [];
+    
+    // Add image URLs if they exist
+    if (propertyData.image_url && Array.isArray(propertyData.image_url)) {
+      allUrls.push(...propertyData.image_url);
+    }
+    
+    // Add PDF URLs if they exist
+    if (propertyData.pdf_urls && Array.isArray(propertyData.pdf_urls)) {
+      allUrls.push(...propertyData.pdf_urls);
+    }
+
+    // Step 3: Fetch and extract PDF URLs from status logs
+    const { data: statusLogsData, error: statusFetchError } = await supabase
+      .from("status_logs_table")
+      .select("pdf_url")
+      .eq("property_id", propertyId);
+
+    if (statusFetchError) {
+      console.error("Error fetching status logs:", statusFetchError);
+      toast.error("Error fetching status logs for file deletion");
+      return;
+    }
+
+    // Extract PDF URLs from all status log entries
+    if (statusLogsData && statusLogsData.length > 0) {
+      statusLogsData.forEach(statusLog => {
+        if (statusLog.pdf_url && Array.isArray(statusLog.pdf_url)) {
+          allUrls.push(...statusLog.pdf_url);
+        }
+      });
+    }
+
+    console.log("Total files to delete:", allUrls);
+    console.log("Status logs found:", statusLogsData ? statusLogsData.length : 0);
+
+    // Step 4: Delete files from Supabase Storage
+    if (allUrls.length > 0) {
+      const deletePromises = allUrls.map(async (fileUrl) => {
+        try {
+          // Extract file path from Supabase URL
+          // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+          const urlParts: string[] = fileUrl.split('/');
+          const bucketIndex: number = urlParts.findIndex((part: string) => part === 'public') + 1;
+          
+          if (bucketIndex > 0 && bucketIndex < urlParts.length) {
+            const bucket = urlParts[bucketIndex];
+            const filePath = urlParts.slice(bucketIndex + 1).join('/');
+            
+            console.log(`Deleting file from bucket: ${bucket}, path: ${filePath}`);
+            
+            const { error: deleteError } = await supabase.storage
+              .from(bucket)
+              .remove([filePath]);
+
+            if (deleteError) {
+              console.error(`Error deleting file ${filePath}:`, deleteError);
+              return { success: false, error: deleteError, filePath };
+            }
+            
+            return { success: true, filePath };
+          } else {
+            console.warn(`Invalid file URL format: ${fileUrl}`);
+            return { success: false, error: 'Invalid URL format', filePath: fileUrl };
+          }
+        } catch (error) {
+          console.error(`Unexpected error deleting file ${fileUrl}:`, error);
+          return { success: false, error, filePath: fileUrl };
+        }
+      });
+
+      const deleteResults = await Promise.all(deletePromises);
+      
+      // Log results
+      const successfulDeletions = deleteResults.filter(result => result.success);
+      const failedDeletions = deleteResults.filter(result => !result.success);
+      
+      console.log(`Successfully deleted ${successfulDeletions.length} files`);
+      if (failedDeletions.length > 0) {
+        console.warn(`Failed to delete ${failedDeletions.length} files:`, failedDeletions);
+        toast.error(`Warning: Some files could not be deleted (${failedDeletions.length}/${allUrls.length})`);
+      }
+    }
+
+    // Step 5: Clear property record (set property_id to null)
+    const { error: updateError } = await supabase
+      .from("property_table")
+      .update({
+        property_id: null,
+        // Optionally clear the file URLs as well
+        image_url: null,
+        pdf_urls: null
+      })
+      .eq("property_id", propertyId);
+
+    if (updateError) {
+      console.error("Error updating property record:", updateError);
+      toast.error("Error clearing property record");
+      return;
+    }
+
+    // Step 6: Delete related status logs 
+    const { error: statusLogError } = await supabase
+      .from("status_logs_table")
+      .delete()
+      .eq("property_id", propertyId);
+
+    if (statusLogError) {
+      console.warn("Error deleting status logs:", statusLogError);
+      toast.error("Property cleared but status logs may remain");
+    }
+    
+    // Success!
+    toast.success("Property records and associated files cleared successfully");
+    setPropertyIdToBeDeleted(""); // Clear the input
+    
+    // Refresh the property details table to reflect changes
+    if (user.thana) {
+      try {
+        const response = await axios.get(`/api/fetch-property-data-admin`, {
+          params: { thana: user.thana },
+        });
+
+        if (response.data.success) {
+          setPropertyDetails(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error refreshing property data:', err);
+      }
+    }
+
+  } catch (error) {
+    console.error("Unexpected error in clearPropertyRecords:", error);
+    toast.error("An unexpected error occurred while clearing property records");
+  }
+};
 
 
   return (
@@ -997,10 +1173,43 @@ export default function Page() {
               >{isCredentialsUpdating ? <Loader2 className='animate-spin' /> : "Update Info"}</button>
             </div>
 
+
           </div>
+
         </>
+
       )}
 
-    </div>
+      {(user.role == "admin" || user.role == "super admin") && (
+
+        < div className='flex items-center flex-col gap-4'>
+          <p className='text-center px-5 text-2xl font-semibold text-gray-600'>Direct Deletion Access</p>
+          <div className='flex items-start justify-evenly'>
+
+          </div>
+          <div className='bg-white p-6 rounded-xl w-full max-w-md shadow max-sm:w-full max-lg:w-[48%]'>
+            <p className="text-lg font-semibold mb-4 text-center">Detele Property Records</p>
+            <label className="block mb-1">Property Id to be <span className='text-red-500'>deleted</span></label>
+
+            <input
+              type="tel"
+              className="w-full border px-3 py-2 rounded mb-3"
+              placeholder="Property ID"
+              value={propertyIdToBeDeleted}
+              onChange={(e) => setPropertyIdToBeDeleted(e.target.value)}
+            />
+
+
+
+            <button
+              className="bg-red-600 text-white w-full py-2 rounded hover:bg-red-700 flex items-center justify-center"
+              onClick={clearPropertyRecords}
+            >Delete Records</button>
+          </div>
+        </div>
+      )
+      }
+
+    </div >
   );
 }

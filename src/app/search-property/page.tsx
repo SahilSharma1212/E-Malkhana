@@ -306,7 +306,7 @@ const handleSearch = async (e: React.FormEvent) => {
                     <td className='px-3 py-2 border' title={item.description}>{item.case_status}</td>
                     <td className='px-3 py-2 flex gap-2 justify-center items-center h-full border' title="Add Logs">
                       <button
-                        className='bg-white text-blue-500 p-1 rounded-b-xs hover:bg-blue-100 flex items-center gap-1 border-blue-500 rounded-sm h-full w-full'
+                        className='bg-white text-blue-500 p-1 hover:bg-blue-100 flex items-center gap-1 border-blue-500 rounded-sm h-full w-full border'
                         onClick={() => router.push(`/search-property/${item.property_id}`)}
                       >
                         <Logs className='text-blue-500' />

@@ -181,10 +181,10 @@ export default function PropertyForm() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     // Normalize the text to handle Unicode properly (important for Hindi)
     const normalizedValue = value.normalize('NFC');
-    
+
     setFormData((prev) => ({
       ...prev,
       [name]: normalizedValue
@@ -327,7 +327,7 @@ export default function PropertyForm() {
       const normalizedValue = field.value.toString().normalize('NFC').trim();
       return normalizedValue === '';
     });
-    
+
     // Check for missing files - only images are required, PDFs are optional
     const imageFiles = selectedFiles.filter(f => f.type === 'image');
     const missingFiles = imageFiles.length === 0;
@@ -335,13 +335,13 @@ export default function PropertyForm() {
     // Show specific error messages
     if (missingFields.length > 0 || missingFiles) {
       let errorMessage = "";
-      
+
       if (missingFields.length === 1) {
         errorMessage = `Please fill the "${missingFields[0].name}" field`;
       } else if (missingFields.length > 1) {
         errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
       }
-      
+
       if (missingFiles) {
         if (errorMessage) {
           errorMessage += " and select at least one image";
@@ -349,7 +349,7 @@ export default function PropertyForm() {
           errorMessage = "Please select at least one image";
         }
       }
-      
+
       errorMessage += " before submitting.";
       toast.error(errorMessage);
       return;
@@ -391,7 +391,7 @@ export default function PropertyForm() {
 
       // Normalize all text data before saving to ensure proper Unicode encoding
       const normalizeText = (text: string) => text.normalize('NFC').trim();
-      
+
       // Update existing row with qr_id - with proper Unicode handling
       const { error: updateError } = await supabase
         .from("property_table")
@@ -566,6 +566,7 @@ export default function PropertyForm() {
                     </select>
                   )}
                 </div>
+                {/* place of seizure */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Place Of Seizure:</label>
                   {placeOfSeizure === "Other" ? (
@@ -746,13 +747,13 @@ export default function PropertyForm() {
 
                   {/* Eye button + floating sections */}
                   <div className="flex justify-end items-center relative gap-2">
-                    <p className={`text-sm ${formData.section.length > 0 ?"text-green-400" : "text-red-400"}`}>Total : {formData.section.length}</p>
+                    <p className={`text-sm ${formData.section.length > 0 ? "text-green-400" : "text-red-400"}`}>Total : {formData.section.length}</p>
                     <button
                       type="button"
                       onClick={() => setShowSections((prev) => !prev)}
                       className="p-1 text-gray-600 hover:text-gray-800"
                     >
-                      {showSections?<Eye />:<EyeClosed/>}
+                      {showSections ? <Eye /> : <EyeClosed />}
 
                     </button>
 
@@ -787,8 +788,7 @@ export default function PropertyForm() {
                     )}
                   </div>
                 </div>
-
-
+                {/* batch number */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                   <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Batch No <span className="text-gray-500 text-xs">(Optional)</span>:</label>
                   <input
@@ -815,7 +815,7 @@ export default function PropertyForm() {
                       />
                     </div>
                   </div>
-
+                    {/* date of seizure and case status */}
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                     {/* date of seizure */}
                     <div className="flex items-center">
@@ -985,6 +985,7 @@ export default function PropertyForm() {
                 </div>
               </div>
             </div>
+            {/* fole uploads section */}
             <div className="flex items-center justify-evenly flex-col h-full bg-gray-100 w-[25%] rounded-r-lg p-4 max-lg:w-full max-lg:rounded-lg max-md:rounded-none max-lg:mt-4">
               <div className="flex flex-col gap-2 w-full">
                 <label className="text-sm font-semibold text-gray-700">File Type:</label>
@@ -1049,11 +1050,11 @@ export default function PropertyForm() {
                 <div className="mt-4 w-[160px] h-[160px] border border-dashed border-gray-400 rounded-md flex items-center justify-center text-sm text-gray-500 text-center">
                   {fileType === 'image' ? (
                     <div > <p>No images selected</p>
-                    <p className="text-xs text-red-500">(Required)</p>
+                      <p className="text-xs text-red-500">(Required)</p>
                     </div>
                   ) : (
                     <div > <p>No PDFs selected</p>
-                    <p className="text-xs text-green-500">(Optional)</p>
+                      <p className="text-xs text-green-500">(Optional)</p>
                     </div>
                   )}
                 </div>
@@ -1083,6 +1084,8 @@ export default function PropertyForm() {
           </div>
         )
       ) : (
+
+        // access denied
         <div className="min-h-170 p-5 justify-center items-center">
           <div className="rounded-lg bg-white py-5 max-w-100 px-8 flex flex-col items-center gap-8 shadow-lg h-full transition-all">
             <h1 className="text-red-700 font-bold text-3xl text-center transition-all">Access Denied</h1>
