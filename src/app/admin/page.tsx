@@ -53,6 +53,7 @@ const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: st
           {chunk.map((qr, idx) => (
             <View key={idx} style={styles.qrCell}>
               <PDFImage src={getQRImageUrl(qr)} style={styles.qrImage} />
+              <Text> {/*QR CODE VALUE HERE*/} </Text>
             </View>
           ))}
         </View>

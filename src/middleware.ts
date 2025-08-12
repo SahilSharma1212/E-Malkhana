@@ -7,7 +7,7 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET); // ✅ use .env
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
-  const isLoginPage = request.nextUrl.pathname === "/sign-in";
+  const isLoginPage = (request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname == "/otp-login");
   const isHomePage = request.nextUrl.pathname === "/";
   const fullUrl = request.url; // Get the entire URL
 

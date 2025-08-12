@@ -87,6 +87,7 @@ export default function Page() {
                             onClick={(e) => {
                                 e.preventDefault()
                                 toast("Feature not added yet")
+                                window.location.href = "/otp-login"
                             }}
                         >
                             <MdOutlinePhoneIphone />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import QrScanner from 'qr-scanner';
 import { Check, Loader2, Upload } from 'lucide-react';
 
@@ -10,7 +11,9 @@ export default function QRScanner() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [scanner, setScanner] = useState<QrScanner | null>(null);
     const [result, setResult] = useState<string | null>(null);
+    const [isRedirecting, setIsRedirecting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const router = useRouter();
 
     useEffect(() => {
         if (videoRef.current) {
@@ -18,6 +21,14 @@ export default function QRScanner() {
                 videoRef.current,
                 (r) => {
                     setResult(r.data);
+                    // Check if it's a URL and redirect
+                    if (r.data.startsWith('http')) {
+                        setIsRedirecting(true);
+                        // Add a small delay for user to see the success state
+                        setTimeout(() => {
+                            router.push(r.data);
+                        }, 1500);
+                    }
                 },
                 {
                     highlightScanRegion: true,
@@ -31,15 +42,26 @@ export default function QRScanner() {
                 qrScanner.stop();
             };
         }
-    }, []);
+    }, [router]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true }).catch(() => null);
-        if (result) setResult(result.data);
-        else setResult('No QR code found.');
+        if (result) {
+            setResult(result.data);
+            // Check if it's a URL and redirect
+            if (result.data.startsWith('http')) {
+                setIsRedirecting(true);
+                // Add a small delay for user to see the success state
+                setTimeout(() => {
+                    router.push(result.data);
+                }, 1500);
+            }
+        } else {
+            setResult('No QR code found.');
+        }
     };
 
     return (
@@ -70,14 +92,11 @@ export default function QRScanner() {
                 </div>
 
                 <div className="flex w-full justify-between">
-                    
-
                     <div className={` ${result?"hidden w-full":"visible w-[30%]"}`}>
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             className="w-full bg-gray-50 text-black py-2 px-4 rounded hover:bg-gray-200 border-dashed border border-black"
                         >
-                            
                             <div className=" px-2.5 flex justify-center"><Upload /></div>
                         </button>
                         <input
@@ -93,22 +112,16 @@ export default function QRScanner() {
                         <div className={`bg-gray-300 rounded text-gray-800 text-sm break-all flex flex-col items-center justify-center text-center ${result && "p-3"}`}>
                             {result ? (
                                 <div className={`${result?"w-full flex flex-col justify-center items-center gap-3 text-lg font-medium text-green-500":""}`}>
-                                <div className='flex justify-center items-center flex-col gap-4k'>
-                                    <div className='text-2xl font-bold'>Qr Found</div> 
-                                    
-                                    <p className='p-1 border-3 border-green-500 rounded-full'><Check/></p>
-                                    
+                                    <div className='flex justify-center items-center flex-col gap-4'>
+                                        <div className='text-2xl font-bold'>QR Found</div> 
+                                        <p className='p-1 border-3 border-green-500 rounded-full'><Check/></p>
                                     </div>
                                     
-                                    {result.startsWith('http') && (
-                                        <a
-                                            href={result}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className=" inline-block bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 w-full mt-2"
-                                        >
-                                            Open Link
-                                        </a>
+                                    {isRedirecting && (
+                                        <div className="flex justify-center items-center gap-2 text-blue-600 mt-2">
+                                            <Loader2 className="animate-spin w-4 h-4" />
+                                            <span className="text-sm font-medium">Redirecting...</span>
+                                        </div>
                                     )}
                                 </div>
                             ) : (

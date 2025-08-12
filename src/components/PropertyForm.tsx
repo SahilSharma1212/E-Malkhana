@@ -292,9 +292,17 @@ export default function PropertyForm() {
       }
     }
 
-    const finalPlaceOfSeizure = placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure;
-    const finalTypeOfSeizure = typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure;
-    const finalOffenceCategory = offenceCategory === "Other" ? customOffenceCategory : offenceCategory;
+    const finalPlaceOfSeizure = placeOfSeizure === "Other"
+      ? `other - ${customplaceOfSeizure}`
+      : placeOfSeizure;
+
+    const finalTypeOfSeizure = typeOfSeizure === "Other"
+      ? `other - ${customTypeOfSeizure}`
+      : typeOfSeizure;
+
+    const finalOffenceCategory = offenceCategory === "Other"
+      ? `other - ${customOffenceCategory}`
+      : offenceCategory;
 
     if (!qrId) {
       toast.error("Invalid QR ID in URL.");
@@ -305,7 +313,10 @@ export default function PropertyForm() {
     const fieldValidation = [
       { value: formData.courtName, name: "Name of Court" },
       { value: formData.firNumber, name: "FIR Number" },
-      { value: finalOffenceCategory, name: "Category of Offence" },
+      {
+        value: offenceCategory === "Other" ? customOffenceCategory : offenceCategory,
+        name: "Category of Offence"
+      },
       { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
       { value: formData.seizureDate, name: "Date of Seizure" },
       { value: formData.description1, name: "Description" },
@@ -313,9 +324,15 @@ export default function PropertyForm() {
       { value: formData.caseStatus, name: "Case Status" },
       { value: formData.remarks, name: "Remarks" },
       { value: formData.policeStation, name: "Police Station" },
-      { value: finalPlaceOfSeizure, name: "Place Of Seizure" },
+      {
+        value: placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure,
+        name: "Place Of Seizure"
+      },
       { value: formData.registerSerialNumber, name: "Serial Number from Register" },
-      { value: finalTypeOfSeizure, name: "Type of Seizure" },
+      {
+        value: typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure,
+        name: "Type of Seizure"
+      },
       { value: user.name, name: "User Authentication" },
       // Batch Number removed from required fields - now optional
     ];
@@ -568,13 +585,14 @@ export default function PropertyForm() {
                 </div>
                 {/* place of seizure */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Place Of Seizure:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-30">Place Of Seizure:</label>
                   {placeOfSeizure === "Other" ? (
-                    <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
+                    <div className="w-48 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
                       <input
                         type="text"
                         name="placeOfSeizure"
                         id="placeOfSeizure"
+                        placeholder="Place of Seizure"
                         required
                         value={customplaceOfSeizure}
                         onChange={(e) => setCustomPlaceOfSeizure(e.target.value)}
@@ -584,7 +602,7 @@ export default function PropertyForm() {
                         className="w-[20%] hover:bg-gray-100 h-full rounded-r-md bg-gray-50"
                         type="button"
                         onClick={() => {
-                          setPlaceOfSeizure("Police Station");
+                          setPlaceOfSeizure("police station");
                           setCustomPlaceOfSeizure("");
                         }}
                       >
@@ -601,7 +619,7 @@ export default function PropertyForm() {
                         const selected = e.target.value;
                         setPlaceOfSeizure(selected);
                         if (selected === "Other") {
-                          setCustomPlaceOfSeizure("Other - ");
+                          setCustomPlaceOfSeizure("");
                         }
                       }}
                       className="text-input flex-1"
@@ -653,13 +671,14 @@ export default function PropertyForm() {
                 </div>
                 {/* category of offence */}
                 <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
-                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Category of Offence:</label>
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-30">Offence Category:</label>
                   {offenceCategory === "Other" ? (
-                    <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
+                    <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden max-sm:w-[40%]">
                       <input
                         type="text"
                         name="offenceCategory"
                         id="offenceCategory"
+                        placeholder="Offence Category"
                         required
                         value={customOffenceCategory}
                         onChange={(e) => setCustomOffenceCategory(e.target.value)}
@@ -686,7 +705,7 @@ export default function PropertyForm() {
                         const selected = e.target.value;
                         setOffenceCategory(selected);
                         if (selected === "Other") {
-                          setCustomOffenceCategory("Other - ");
+                          setCustomOffenceCategory("");
                         }
                       }}
                       className="text-input flex-1"
@@ -815,7 +834,7 @@ export default function PropertyForm() {
                       />
                     </div>
                   </div>
-                    {/* date of seizure and case status */}
+                  {/* date of seizure and case status , type of seizure */}
                   <div className="flex flex-col gap-3 w-[48%] max-md:w-[80%] max-sm:w-[90%]">
                     {/* date of seizure */}
                     <div className="flex items-center">
@@ -842,13 +861,14 @@ export default function PropertyForm() {
                     </div>
                     {/* type of seizure */}
                     <div className="flex items-center">
-                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">Type of Seizure:</label>
+                      <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700 max-sm:w-30">Type of Seizure:</label>
                       {typeOfSeizure === "Other" ? (
                         <div className="w-100 h-10 border border-gray-400 text-black rounded-lg max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs flex-1 gap-2 max-sm:gap-0 items-center overflow-hidden">
                           <input
                             type="text"
                             name="typeOfSeizure"
                             id="typeOfSeizure"
+                            placeholder="Type of Seizure"
                             required
                             value={customTypeOfSeizure}
                             onChange={(e) => setCustomTypeOfSeizure(e.target.value)}
@@ -858,8 +878,8 @@ export default function PropertyForm() {
                             className="w-[20%] hover:bg-gray-100 h-full rounded-r-md"
                             type="button"
                             onClick={() => {
-                              setTypeOfSeizure("");
-                              setCustomTypeOfSeizure("");
+                              setTypeOfSeizure("unclaimed"); // Reset to default
+                              setCustomTypeOfSeizure(""); // Clear custom input
                             }}
                           >
                             X
@@ -875,7 +895,7 @@ export default function PropertyForm() {
                             const selected = e.target.value;
                             setTypeOfSeizure(selected);
                             if (selected === "Other") {
-                              setCustomTypeOfSeizure("Other - ");
+                              setCustomTypeOfSeizure("");
                             }
                           }}
                           className="text-input flex-1"
