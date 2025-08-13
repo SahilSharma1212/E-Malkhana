@@ -280,7 +280,7 @@ export default function Page() {
             <tbody>
               {propertyData.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className='text-center py-4 text-gray-500 max-sm:text-start'>
+                  <td colSpan={16} className='text-center py-4 text-gray-500 max-sm:text-start px-3'>
                     {loading ? "Loading..." : "Search properties using parameters"}
                   </td>
                 </tr>
