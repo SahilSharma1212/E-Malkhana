@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, Database, Logs, Search } from 'lucide-react';
+import { Ban, Database, Logs, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -238,7 +238,7 @@ export default function Page() {
               onClick={handleReset}
               disabled={loading}
             >
-              <ChevronLeft className='text-red-300' />
+              <Ban className='text-red-300' />
               <p className='max-lg:hidden max-md:visible'>Reset</p>
             </button>
             {/* Optional: Button to fetch all properties */}
@@ -248,7 +248,7 @@ export default function Page() {
               onClick={fetchAllProperties}
               disabled={loading}
             >
-              <Database className='text-emerald-600' size={20}/>
+              <Database className='text-emerald-600' size={20} />
               <p className='max-lg:hidden max-md:visible'>Load All</p>
             </button>
           </div>
@@ -280,7 +280,7 @@ export default function Page() {
             <tbody>
               {propertyData.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className='text-center py-4 text-gray-500'>
+                  <td colSpan={16} className='text-center py-4 text-gray-500 max-sm:text-start'>
                     {loading ? "Loading..." : "Search properties using parameters"}
                   </td>
                 </tr>
