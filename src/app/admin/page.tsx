@@ -125,32 +125,41 @@ export default function Page() {
   const [newCredentialValue, setNewCredentialValue] = useState("")
   const [isCredentialsUpdating, setIsCredentialUpdating] = useState(false);
 
-  const [propertyIdToBeDeleted, setPropertyIdToBeDeleted] = useState("")
+  const [propertyIdToBeDeleted, setPropertyIdToBeDeleted] = useState("");
+  const [isSearchingDetails, setIsSearchingDetails] = useState(false)
 
-  useEffect(() => {
-    const handleViewData = async () => {
-      if (!user.thana) return;
-
-      try {
-        const response = await axios.get(`/api/fetch-property-data-admin`, {
-          params: { thana: user.thana },
-        });
-
-        if (response.data.success) {
-          setPropertyDetails(response.data.data);
-        } else {
-          toast.error(response.data.message);
-          setIsPropertyDetailsFetched(false);
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        toast.error("An unexpected error occurred.");
-        setIsPropertyDetailsFetched(false);
-      }
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+  const handleViewData = async () => {
+    setIsSearchingDetails(true)
+    if (!user.thana) {
+      setIsSearchingDetails(false)
+      return
     };
 
-    handleViewData();
-  }, [user.thana]);
+    try {
+      const response = await axios.get(`/api/fetch-property-data-admin`, {
+        params: { thana: user.thana },
+      });
+
+      if (response.data.success) {
+        setPropertyDetails(response.data.data);
+        setHasLoadedData(true); // Add this line
+        setIsSearchingDetails(false);
+        return
+      } else {
+        toast.error(response.data.message);
+        setIsPropertyDetailsFetched(false);
+        setIsSearchingDetails(false)
+        return;
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error("An unexpected error occurred.");
+      setIsPropertyDetailsFetched(false);
+      setIsSearchingDetails(false)
+      return;
+    }
+  };
 
 
   useEffect(() => {
@@ -459,177 +468,177 @@ export default function Page() {
     }
   };
 
-const clearPropertyRecords = async () => {
-  // Input validation
-  if (!propertyIdToBeDeleted.trim()) {
-    toast.error("Cannot Delete Empty ID");
-    return;
-  }
+  const clearPropertyRecords = async () => {
+    // Input validation
+    if (!propertyIdToBeDeleted.trim()) {
+      toast.error("Cannot Delete Empty ID");
+      return;
+    }
 
-  const propertyId = propertyIdToBeDeleted.trim().toLowerCase();
+    const propertyId = propertyIdToBeDeleted.trim().toLowerCase();
 
-  try {
-    // Step 1: Check if property exists and fetch file URLs
-    const { data: propertyData, error: fetchError } = await supabase
-      .from("property_table")
-      .select("property_id, image_url, pdf_urls")
-      .eq("property_id", propertyId)
-      .single();
+    try {
+      // Step 1: Check if property exists and fetch file URLs
+      const { data: propertyData, error: fetchError } = await supabase
+        .from("property_table")
+        .select("property_id, image_url, pdf_urls")
+        .eq("property_id", propertyId)
+        .single();
 
-    if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        toast.error("Property ID not found");
+      if (fetchError) {
+        if (fetchError.code === 'PGRST116') {
+          toast.error("Property ID not found");
+          return;
+        }
+        console.error("Error fetching property:", fetchError);
+        toast.error("Error checking property existence");
         return;
       }
-      console.error("Error fetching property:", fetchError);
-      toast.error("Error checking property existence");
-      return;
-    }
 
-    if (!propertyData || !propertyData.property_id) {
-      toast.error("Property ID not found or already deleted");
-      return;
-    }
-
-    console.log("Property found:", propertyData);
-
-    // Step 2: Extract file URLs from property table
-    const allUrls = [];
-    
-    // Add image URLs if they exist
-    if (propertyData.image_url && Array.isArray(propertyData.image_url)) {
-      allUrls.push(...propertyData.image_url);
-    }
-    
-    // Add PDF URLs if they exist
-    if (propertyData.pdf_urls && Array.isArray(propertyData.pdf_urls)) {
-      allUrls.push(...propertyData.pdf_urls);
-    }
-
-    // Step 3: Fetch and extract PDF URLs from status logs
-    const { data: statusLogsData, error: statusFetchError } = await supabase
-      .from("status_logs_table")
-      .select("pdf_url")
-      .eq("property_id", propertyId);
-
-    if (statusFetchError) {
-      console.error("Error fetching status logs:", statusFetchError);
-      toast.error("Error fetching status logs for file deletion");
-      return;
-    }
-
-    // Extract PDF URLs from all status log entries
-    if (statusLogsData && statusLogsData.length > 0) {
-      statusLogsData.forEach(statusLog => {
-        if (statusLog.pdf_url && Array.isArray(statusLog.pdf_url)) {
-          allUrls.push(...statusLog.pdf_url);
-        }
-      });
-    }
-
-    console.log("Total files to delete:", allUrls);
-    console.log("Status logs found:", statusLogsData ? statusLogsData.length : 0);
-
-    // Step 4: Delete files from Supabase Storage
-    if (allUrls.length > 0) {
-      const deletePromises = allUrls.map(async (fileUrl) => {
-        try {
-          // Extract file path from Supabase URL
-          // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
-          const urlParts: string[] = fileUrl.split('/');
-          const bucketIndex: number = urlParts.findIndex((part: string) => part === 'public') + 1;
-          
-          if (bucketIndex > 0 && bucketIndex < urlParts.length) {
-            const bucket = urlParts[bucketIndex];
-            const filePath = urlParts.slice(bucketIndex + 1).join('/');
-            
-            console.log(`Deleting file from bucket: ${bucket}, path: ${filePath}`);
-            
-            const { error: deleteError } = await supabase.storage
-              .from(bucket)
-              .remove([filePath]);
-
-            if (deleteError) {
-              console.error(`Error deleting file ${filePath}:`, deleteError);
-              return { success: false, error: deleteError, filePath };
-            }
-            
-            return { success: true, filePath };
-          } else {
-            console.warn(`Invalid file URL format: ${fileUrl}`);
-            return { success: false, error: 'Invalid URL format', filePath: fileUrl };
-          }
-        } catch (error) {
-          console.error(`Unexpected error deleting file ${fileUrl}:`, error);
-          return { success: false, error, filePath: fileUrl };
-        }
-      });
-
-      const deleteResults = await Promise.all(deletePromises);
-      
-      // Log results
-      const successfulDeletions = deleteResults.filter(result => result.success);
-      const failedDeletions = deleteResults.filter(result => !result.success);
-      
-      console.log(`Successfully deleted ${successfulDeletions.length} files`);
-      if (failedDeletions.length > 0) {
-        console.warn(`Failed to delete ${failedDeletions.length} files:`, failedDeletions);
-        toast.error(`Warning: Some files could not be deleted (${failedDeletions.length}/${allUrls.length})`);
+      if (!propertyData || !propertyData.property_id) {
+        toast.error("Property ID not found or already deleted");
+        return;
       }
-    }
 
-    // Step 5: Clear property record (set property_id to null)
-    const { error: updateError } = await supabase
-      .from("property_table")
-      .update({
-        property_id: null,
-        // Optionally clear the file URLs as well
-        image_url: null,
-        pdf_urls: null
-      })
-      .eq("property_id", propertyId);
+      console.log("Property found:", propertyData);
 
-    if (updateError) {
-      console.error("Error updating property record:", updateError);
-      toast.error("Error clearing property record");
-      return;
-    }
+      // Step 2: Extract file URLs from property table
+      const allUrls = [];
 
-    // Step 6: Delete related status logs 
-    const { error: statusLogError } = await supabase
-      .from("status_logs_table")
-      .delete()
-      .eq("property_id", propertyId);
+      // Add image URLs if they exist
+      if (propertyData.image_url && Array.isArray(propertyData.image_url)) {
+        allUrls.push(...propertyData.image_url);
+      }
 
-    if (statusLogError) {
-      console.warn("Error deleting status logs:", statusLogError);
-      toast.error("Property cleared but status logs may remain");
-    }
-    
-    // Success!
-    toast.success("Property records and associated files cleared successfully");
-    setPropertyIdToBeDeleted(""); // Clear the input
-    
-    // Refresh the property details table to reflect changes
-    if (user.thana) {
-      try {
-        const response = await axios.get(`/api/fetch-property-data-admin`, {
-          params: { thana: user.thana },
+      // Add PDF URLs if they exist
+      if (propertyData.pdf_urls && Array.isArray(propertyData.pdf_urls)) {
+        allUrls.push(...propertyData.pdf_urls);
+      }
+
+      // Step 3: Fetch and extract PDF URLs from status logs
+      const { data: statusLogsData, error: statusFetchError } = await supabase
+        .from("status_logs_table")
+        .select("pdf_url")
+        .eq("property_id", propertyId);
+
+      if (statusFetchError) {
+        console.error("Error fetching status logs:", statusFetchError);
+        toast.error("Error fetching status logs for file deletion");
+        return;
+      }
+
+      // Extract PDF URLs from all status log entries
+      if (statusLogsData && statusLogsData.length > 0) {
+        statusLogsData.forEach(statusLog => {
+          if (statusLog.pdf_url && Array.isArray(statusLog.pdf_url)) {
+            allUrls.push(...statusLog.pdf_url);
+          }
+        });
+      }
+
+      console.log("Total files to delete:", allUrls);
+      console.log("Status logs found:", statusLogsData ? statusLogsData.length : 0);
+
+      // Step 4: Delete files from Supabase Storage
+      if (allUrls.length > 0) {
+        const deletePromises = allUrls.map(async (fileUrl) => {
+          try {
+            // Extract file path from Supabase URL
+            // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+            const urlParts: string[] = fileUrl.split('/');
+            const bucketIndex: number = urlParts.findIndex((part: string) => part === 'public') + 1;
+
+            if (bucketIndex > 0 && bucketIndex < urlParts.length) {
+              const bucket = urlParts[bucketIndex];
+              const filePath = urlParts.slice(bucketIndex + 1).join('/');
+
+              console.log(`Deleting file from bucket: ${bucket}, path: ${filePath}`);
+
+              const { error: deleteError } = await supabase.storage
+                .from(bucket)
+                .remove([filePath]);
+
+              if (deleteError) {
+                console.error(`Error deleting file ${filePath}:`, deleteError);
+                return { success: false, error: deleteError, filePath };
+              }
+
+              return { success: true, filePath };
+            } else {
+              console.warn(`Invalid file URL format: ${fileUrl}`);
+              return { success: false, error: 'Invalid URL format', filePath: fileUrl };
+            }
+          } catch (error) {
+            console.error(`Unexpected error deleting file ${fileUrl}:`, error);
+            return { success: false, error, filePath: fileUrl };
+          }
         });
 
-        if (response.data.success) {
-          setPropertyDetails(response.data.data);
-        }
-      } catch (err) {
-        console.error('Error refreshing property data:', err);
-      }
-    }
+        const deleteResults = await Promise.all(deletePromises);
 
-  } catch (error) {
-    console.error("Unexpected error in clearPropertyRecords:", error);
-    toast.error("An unexpected error occurred while clearing property records");
-  }
-};
+        // Log results
+        const successfulDeletions = deleteResults.filter(result => result.success);
+        const failedDeletions = deleteResults.filter(result => !result.success);
+
+        console.log(`Successfully deleted ${successfulDeletions.length} files`);
+        if (failedDeletions.length > 0) {
+          console.warn(`Failed to delete ${failedDeletions.length} files:`, failedDeletions);
+          toast.error(`Warning: Some files could not be deleted (${failedDeletions.length}/${allUrls.length})`);
+        }
+      }
+
+      // Step 5: Clear property record (set property_id to null)
+      const { error: updateError } = await supabase
+        .from("property_table")
+        .update({
+          property_id: null,
+          // Optionally clear the file URLs as well
+          image_url: null,
+          pdf_urls: null
+        })
+        .eq("property_id", propertyId);
+
+      if (updateError) {
+        console.error("Error updating property record:", updateError);
+        toast.error("Error clearing property record");
+        return;
+      }
+
+      // Step 6: Delete related status logs 
+      const { error: statusLogError } = await supabase
+        .from("status_logs_table")
+        .delete()
+        .eq("property_id", propertyId);
+
+      if (statusLogError) {
+        console.warn("Error deleting status logs:", statusLogError);
+        toast.error("Property cleared but status logs may remain");
+      }
+
+      // Success!
+      toast.success("Property records and associated files cleared successfully");
+      setPropertyIdToBeDeleted(""); // Clear the input
+
+      // Refresh the property details table to reflect changes
+      if (user.thana) {
+        try {
+          const response = await axios.get(`/api/fetch-property-data-admin`, {
+            params: { thana: user.thana },
+          });
+
+          if (response.data.success) {
+            setPropertyDetails(response.data.data);
+          }
+        } catch (err) {
+          console.error('Error refreshing property data:', err);
+        }
+      }
+
+    } catch (error) {
+      console.error("Unexpected error in clearPropertyRecords:", error);
+      toast.error("An unexpected error occurred while clearing property records");
+    }
+  };
 
 
   return (
@@ -675,10 +684,18 @@ const clearPropertyRecords = async () => {
       </div>
 
       {/* Table Section */}
-      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4">
+      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
           Seized Property Items: {user.thana || 'N/A'}
         </h2>
+
+        {!hasLoadedData && <button
+          className='mb-4 rounded-md font-semibold text-base text-white px-5 py-2 bg-blue-500 hover:bg-blue-700 transition-all cursor-pointer'
+          disabled={isSearchingDetails}
+          onClick={handleViewData}
+        >
+          {isSearchingDetails ? <Loader2 className='animate-spin' /> : "Load details"}
+        </button>}
 
         {ispropertyDetailsFetched ? "" : <p className='flex items-center justify-center text-center pb-5 text-red-700'>( Try refreshing or logging in again ! )</p>}
         <table className="min-w-full border text-sm text-left text-gray-700">
@@ -725,6 +742,7 @@ const clearPropertyRecords = async () => {
                 </td>
               </tr>
             ))}
+            {isSearchingDetails && <tr><td colSpan={12}><div className=' py-5 flex items-center justify-center'><Loader2 className='animate-spin' /></div></td></tr>}
           </tbody>
         </table>
       </div>

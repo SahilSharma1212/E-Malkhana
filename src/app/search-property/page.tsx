@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, Logs, Search } from 'lucide-react';
+import { ChevronLeft, Database, Logs, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -39,7 +39,7 @@ export default function Page() {
     name: "",
     role: "",
     thana: "",
-  })
+  });
 
   let column = "property_id"; // default
 
@@ -71,14 +71,7 @@ export default function Page() {
       break;
   }
 
-  // use effect to fetch the properties
-  useEffect(() => {
-    if (userData.role) {
-      fetchAllProperties();
-    }
-  }, [userData.role]);
-
-  // inotial fetch function
+  // Fetch all properties
   const fetchAllProperties = async () => {
     setLoading(true);
 
@@ -100,8 +93,7 @@ export default function Page() {
     setLoading(false);
   };
 
-
-  // use effect to get data from token
+  // Fetch user data from token
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -115,57 +107,55 @@ export default function Page() {
           name: res.data.user.name,
           role: res.data.user.role,
           thana: res.data.user.thana,
-        })
-
+        });
       } catch (err) {
-        console.log(err)
+        console.log(err);
       }
     }
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
-const handleSearch = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (searchValue.trim() === "") {
-    alert("Please enter a value to search.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch("/api/handle-search-property", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        searchValue,
-        searchCategory,
-        column,
-        userData,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error("❌ API error:", result.error);
-    } else {
-      setPropertyData(result.data);
+    if (searchValue.trim() === "") {
+      alert("Please enter a value to search.");
+      return;
     }
-  } catch (err) {
-    console.error("❌ Network error:", err);
-  }
 
-  setLoading(false);
-};
+    setLoading(true);
 
+    try {
+      const response = await fetch("/api/handle-search-property", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          searchValue,
+          searchCategory,
+          column,
+          userData,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("❌ API error:", result.error);
+      } else {
+        setPropertyData(result.data);
+      }
+    } catch (err) {
+      console.error("❌ Network error:", err);
+    }
+
+    setLoading(false);
+  };
 
   const handleReset = async () => {
     setSearchValue("");
-    fetchAllProperties();
+    setPropertyData([]); // Clear the table
   };
 
   return (
@@ -251,13 +241,22 @@ const handleSearch = async (e: React.FormEvent) => {
               <ChevronLeft className='text-red-300' />
               <p className='max-lg:hidden max-md:visible'>Reset</p>
             </button>
+            {/* Optional: Button to fetch all properties */}
+            <button
+              type='button'
+              className='bg-white py-1 rounded-sm px-2 outline-none flex justify-center items-center gap-2 hover:bg-emerald-100 max-md:px-2'
+              onClick={fetchAllProperties}
+              disabled={loading}
+            >
+              <Database className='text-emerald-600' size={20}/>
+              <p className='max-lg:hidden max-md:visible'>Load All</p>
+            </button>
           </div>
         </form>
 
         {/* Table Section */}
         <div className='overflow-auto'>
           <table className='min-w-full border border-gray-300 text-sm text-left rounded-md'>
-
             <thead className='bg-gray-100 text-gray-700 font-semibold'>
               <tr>
                 <th className='px-3 py-2 border'>S.No</th>
@@ -278,12 +277,11 @@ const handleSearch = async (e: React.FormEvent) => {
                 <th className='px-3 py-2 border'>Logs</th>
               </tr>
             </thead>
-
             <tbody>
               {propertyData.length === 0 ? (
                 <tr>
                   <td colSpan={16} className='text-center py-4 text-gray-500'>
-                    {loading ? "Loading..." : "No records found"}
+                    {loading ? "Loading..." : "Search properties using parameters"}
                   </td>
                 </tr>
               ) : (
@@ -316,7 +314,6 @@ const handleSearch = async (e: React.FormEvent) => {
                 ))
               )}
             </tbody>
-
           </table>
         </div>
       </div>
