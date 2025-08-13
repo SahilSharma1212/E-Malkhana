@@ -684,68 +684,113 @@ export default function Page() {
       </div>
 
       {/* Table Section */}
-      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center">
+      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
           Seized Property Items: {user.thana || 'N/A'}
         </h2>
 
-        {!hasLoadedData && <button
-          className='mb-4 rounded-md font-semibold text-base text-white px-5 py-2 bg-blue-500 hover:bg-blue-700 transition-all cursor-pointer'
-          disabled={isSearchingDetails}
-          onClick={handleViewData}
-        >
-          {isSearchingDetails ? <Loader2 className='animate-spin' /> : "Load details"}
-        </button>}
+        {!hasLoadedData && (
+          <button
+            className="mb-4 rounded-md font-semibold text-base text-white px-5 py-2 bg-blue-500 hover:bg-blue-700 transition-all cursor-pointer"
+            disabled={isSearchingDetails}
+            onClick={handleViewData}
+          >
+            {isSearchingDetails ? <Loader2 className="animate-spin" /> : "Load details"}
+          </button>
+        )}
 
-        {ispropertyDetailsFetched ? "" : <p className='flex items-center justify-center text-center pb-5 text-red-700'>( Try refreshing or logging in again ! )</p>}
-        <table className="min-w-full border text-sm text-left text-gray-700">
-          <thead className="bg-gray-100 text-xs uppercase text-gray-600">
-            <tr>
-              <th className="px-4 py-2">Property ID</th>
-              <th className="px-4 py-2">Name of IO</th>
-              <th className="px-4 py-2">Created At</th>
-              <th className="px-4 py-2">Date of Seizure</th>
-              <th className="px-4 py-2">Category</th>
-              <th className="px-4 py-2">Type</th>
-              <th className="px-4 py-2">FIR Number</th>
-              <th className="px-4 py-2">Place</th>
-              <th className="px-4 py-2">Rack</th>
-              <th className="px-4 py-2">Box</th>
-              <th className="px-4 py-2">Serial No.</th>
-              <th className="px-4 py-2">Logs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {propertyDetails.map((item, index) => (
-              <tr
-                key={index}
-                className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-              >
-                <td className="px-4 py-2">{item.property_id}</td>
-                <td className="px-4 py-2">{item.name_of_io}</td>
-                <td className="px-4 py-2">{new Date(item.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-2">{item.date_of_seizure}</td>
-                <td className="px-4 py-2">{item.category_of_offence}</td>
-                <td className="px-4 py-2">{item.type_of_seizure}</td>
-                <td className="px-4 py-2">{item.fir_number}</td>
-                <td className="px-4 py-2">{item.place_of_seizure}</td>
-                <td className="px-4 py-2">{item.rack_number}</td>
-                <td className="px-4 py-2">{item.box_number}</td>
-                <td className="px-4 py-2">{item.serial_number_from_register}</td>
-                <td className="px-4 py-2" title='View Logs'>
-                  <Link
-                    href={`/search-property/${item.property_id}`}
-                    className="bg-white text-blue-500 p-1 rounded-sm hover:bg-blue-100 flex items-center gap-1 border border-blue-500"
-                  >
-                    <Logs className="text-blue-500" size={16} />
-                  </Link>
-                </td>
+        {ispropertyDetailsFetched ? (
+          ""
+        ) : (
+          <p className="flex items-center justify-center text-center pb-5 text-red-700">
+            ( Try refreshing or logging in again ! )
+          </p>
+        )}
+
+        <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+          <table className="min-w-[1200px] border text-sm text-left text-gray-700">
+            <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
+              <tr>
+                <th className="px-4 py-2 whitespace-nowrap">Property ID</th>
+                <th className="px-4 py-2 whitespace-nowrap">Name of IO</th>
+                <th className="px-4 py-2 whitespace-nowrap">Created At</th>
+                <th className="px-4 py-2 whitespace-nowrap">Date of Seizure</th>
+                <th className="px-4 py-2 whitespace-nowrap">Category</th>
+                <th className="px-4 py-2 whitespace-nowrap">Type</th>
+                <th className="px-4 py-2 whitespace-nowrap">FIR Number</th>
+                <th className="px-4 py-2 whitespace-nowrap">Place</th>
+                <th className="px-4 py-2 whitespace-nowrap">Rack</th>
+                <th className="px-4 py-2 whitespace-nowrap">Box</th>
+                <th className="px-4 py-2 whitespace-nowrap">Serial No.</th>
+                <th className="px-4 py-2 whitespace-nowrap">Logs</th>
               </tr>
-            ))}
-            {isSearchingDetails && <tr><td colSpan={12}><div className=' py-5 flex items-center justify-center'><Loader2 className='animate-spin' /></div></td></tr>}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {propertyDetails.map((item, index) => (
+                <tr
+                  key={index}
+                  className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                >
+                  <td className="px-4 py-2 whitespace-nowrap">{item.property_id}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.name_of_io}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    {new Date(item.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.date_of_seizure}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.category_of_offence}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.type_of_seizure}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.fir_number}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.place_of_seizure}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.rack_number}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.box_number}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.serial_number_from_register}</td>
+                  <td className="px-4 py-2 whitespace-nowrap" title="View Logs">
+                    <Link
+                      href={`/search-property/${item.property_id}`}
+                      className="bg-white text-blue-500 p-1 rounded-sm hover:bg-blue-100 flex items-center gap-1 border border-blue-500"
+                    >
+                      <Logs className="text-blue-500" size={16} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {isSearchingDetails && (
+                <tr>
+                  <td colSpan={12}>
+                    <div className="py-5 flex items-center justify-center">
+                      <Loader2 className="animate-spin" />
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      <style jsx>{`
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af #f3f4f6;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+  table {
+    -webkit-overflow-scrolling: touch;
+  }
+`}</style>
 
       {['admin', 'thana admin', 'super admin'].includes(user.role) ? (
         <>
