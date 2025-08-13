@@ -34,11 +34,11 @@ export default function PropertyForm() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [placeOfSeizure, setPlaceOfSeizure] = useState<string>("Place Of Incident");
+  const [placeOfSeizure, setPlaceOfSeizure] = useState<string>("");
   const [customplaceOfSeizure, setCustomPlaceOfSeizure] = useState<string>("");
-  const [typeOfSeizure, setTypeOfSeizure] = useState<string>("unclaimed");
+  const [typeOfSeizure, setTypeOfSeizure] = useState<string>("");
   const [customTypeOfSeizure, setCustomTypeOfSeizure] = useState<string>("");
-  const [offenceCategory, setOffenceCategory] = useState<string>("Body Offence");
+  const [offenceCategory, setOffenceCategory] = useState<string>("");
   const [customOffenceCategory, setCustomOffenceCategory] = useState<string>("");
   const [sectionInput, setSectionInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<{ file: File; type: string }[]>([]);
@@ -65,7 +65,7 @@ export default function PropertyForm() {
   const [formData, setFormData] = useState<PropertyFormData>({
     courtName: "",
     firNumber: "",
-    offenceCategory: "body offence",
+    offenceCategory: "",
     section: [],
     seizureDate: "",
     description1: "",
@@ -75,9 +75,9 @@ export default function PropertyForm() {
     boxNumber: "",
     remarks: "",
     policeStation: user.thana,
-    placeOfSeizure: "police station",
+    placeOfSeizure: "",
     registerSerialNumber: "",
-    typeOfSeizure: "unclaimed",
+    typeOfSeizure: "",
     batchNumber: ""
   });
 
@@ -499,11 +499,23 @@ export default function PropertyForm() {
       boxNumber: "",
       remarks: "",
       policeStation: user.thana,
-      placeOfSeizure: "Police Station",
+      placeOfSeizure: "",
       registerSerialNumber: "",
-      typeOfSeizure: "unclaimed",
+      typeOfSeizure: "",
       batchNumber: ""
     });
+    setPlaceOfSeizure("");
+    setTypeOfSeizure("");
+    setOffenceCategory("");
+
+    // Reset custom input values
+    setCustomPlaceOfSeizure("");
+    setCustomTypeOfSeizure("");
+    setCustomOffenceCategory("");
+
+    // Reset section input
+    setSectionInput("");
+
     setSelectedFiles([]);
     setPreviewUrls(prev => {
       prev.forEach(({ url, type }) => {
@@ -602,7 +614,7 @@ export default function PropertyForm() {
                         className="w-[20%] hover:bg-gray-100 h-full rounded-r-md bg-gray-50"
                         type="button"
                         onClick={() => {
-                          setPlaceOfSeizure("police station");
+                          setPlaceOfSeizure("");
                           setCustomPlaceOfSeizure("");
                         }}
                       >
@@ -624,6 +636,7 @@ export default function PropertyForm() {
                       }}
                       className="text-input flex-1"
                     >
+                      <option value="">-- Select Place --</option>
                       <option value="police station">Police Station</option>
                       <option value="place of incident">Place Of Incident</option>
                       <option value="Other">Other</option>
@@ -688,7 +701,7 @@ export default function PropertyForm() {
                         className="w-[20%] hover:bg-gray-100 h-full rounded-r-md"
                         type="button"
                         onClick={() => {
-                          setOffenceCategory("body offence");
+                          setOffenceCategory("");
                           setCustomOffenceCategory("");
                         }}
                       >
@@ -710,6 +723,7 @@ export default function PropertyForm() {
                       }}
                       className="text-input flex-1"
                     >
+                      <option value="">-- Offence Category --</option>
                       <option value="body offence">Body Offence</option>
                       <option value="property offence">Property Offence</option>
                       <option value="offence related to c/w">Offence Related to C/W</option>
@@ -878,7 +892,7 @@ export default function PropertyForm() {
                             className="w-[20%] hover:bg-gray-100 h-full rounded-r-md"
                             type="button"
                             onClick={() => {
-                              setTypeOfSeizure("unclaimed"); // Reset to default
+                              setTypeOfSeizure(""); // Reset to default
                               setCustomTypeOfSeizure(""); // Clear custom input
                             }}
                           >
@@ -900,6 +914,7 @@ export default function PropertyForm() {
                           }}
                           className="text-input flex-1"
                         >
+                          <option value="">-- Type of Seizure --</option>
                           <option value="unclaimed">Unclaimed</option>
                           <option value="memorendum">Memorendum</option>
                           <option value="police station">Police Station</option>
