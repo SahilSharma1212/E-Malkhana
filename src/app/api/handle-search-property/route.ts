@@ -1,4 +1,3 @@
-// /app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import supabase from "@/config/supabaseConnect";
 
@@ -35,13 +34,7 @@ export async function POST(req: NextRequest) {
 
     if (searchCategory === "offence") {
       if (searchValue === "other") {
-        query = query
-          .not("category_of_offence", "in", [
-            "body offence",
-            "property offence",
-            "offence related to c/w",
-          ])
-          .neq("category_of_offence", "");
+        query = query.ilike("category_of_offence", "other%"); // Match records starting with "other"
       } else {
         query = query.ilike("category_of_offence", `%${searchValue}%`);
       }
@@ -55,8 +48,8 @@ export async function POST(req: NextRequest) {
       const to = new Date(searchValue);
       to.setDate(to.getDate() + 1);
       query = query
-        .gte("created_at", from.toISOString())
-        .lt("created_at", to.toISOString());
+        .gte(searchCategory === "created_at" ? "created_at" : "date_of_seizure", from.toISOString())
+        .lt(searchCategory === "created_at" ? "created_at" : "date_of_seizure", to.toISOString());
     } else {
       query = query.ilike(column, `%${searchValue.trim()}%`);
     }

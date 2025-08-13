@@ -264,6 +264,7 @@ export default function Page() {
                 <th className='px-3 py-2 border'>FIR Number</th>
                 <th className='px-3 py-2 border'>Register Number</th>
                 <th className='px-3 py-2 border'>Under Section</th>
+                <th className='px-3 py-2 border'>Offence Category</th>
                 <th className='px-3 py-2 border'>Date of Seizure</th>
                 <th className='px-3 py-2 border'>Type of Seizure</th>
                 <th className='px-3 py-2 border'>Place of Seizure</th>
@@ -292,6 +293,7 @@ export default function Page() {
                     <td className='px-3 py-2 border' title={item.description}>{item.fir_number}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.serial_number_from_register}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.under_section}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{item.category_of_offence}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.date_of_seizure ? new Date(item.date_of_seizure).toLocaleDateString() : "N/A"}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.type_of_seizure}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.place_of_seizure}</td>
