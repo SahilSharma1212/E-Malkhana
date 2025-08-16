@@ -9,12 +9,13 @@ type SearchRequest = {
     role: string;
     thana: string;
   };
+  rackBoxType?: string; // Optional, only for rackbox category
 };
 
 export async function POST(req: NextRequest) {
   try {
     const body: SearchRequest = await req.json();
-    const { searchValue, searchCategory, column, userData } = body;
+    const { searchValue, searchCategory, column, userData, rackBoxType } = body;
 
     if (
       !searchValue ||
@@ -40,6 +41,23 @@ export async function POST(req: NextRequest) {
       }
     } else if (searchCategory === "io") {
       query = query.ilike("name_of_io", `%${searchValue}%`);
+    } else if (searchCategory === "rackbox") {
+      // Handle the combined rack/box search
+      if (rackBoxType === "rack") {
+        if (searchValue === "Special Place") {
+          query = query.ilike("rack_number", "Special Place%");
+        } else {
+          query = query.eq("rack_number", searchValue);
+        }
+      } else if (rackBoxType === "box") {
+        if (searchValue === "Special Place") {
+          query = query.ilike("box_number", "Special Place%");
+        } else {
+          query = query.eq("box_number", searchValue);
+        }
+      } else {
+        return NextResponse.json({ error: "Invalid rack/box type" }, { status: 400 });
+      }
     } else if (
       searchCategory === "created_at" ||
       searchCategory === "seizuredate"
