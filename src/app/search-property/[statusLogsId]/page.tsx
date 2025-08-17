@@ -412,7 +412,7 @@ export default function Page({ params }: PageProps) {
                       <th className="border px-4 py-2">Event Date</th>
                       <th className="border px-4 py-2">Created At</th>
                       <th className="border px-4 py-2">Status</th>
-                      <th className="border px-4 py-2">IO Batch No.</th>
+                      <th className="border px-4 py-2">Reason</th>
                       <th className="border px-4 py-2">Log Report</th>
                     </tr>
                   </thead>
@@ -429,7 +429,7 @@ export default function Page({ params }: PageProps) {
                           {new Date(log.created_at).toLocaleString()}
                         </td>
                         <td className="border px-4 py-2">{log.status}</td>
-                        <td className="border px-4 py-2">{log.io_batch_number}</td>
+                        <td className="border px-4 py-2">{log.reason}</td>
                         <td className="border px-4 py-2 flex justify-center" title={log.pdf_url.length > 0 ? "View PDFs" : "No PDFs Uploaded"}>
                           {log.pdf_url.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
