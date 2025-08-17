@@ -1117,10 +1117,10 @@ export default function Page() {
         <>
           <p className="text-center px-5 text-2xl font-semibold text-gray-600">Super Admin Access</p>
 
-          <div className="flex gap-6 items-start justify-start p-4 max-lg:flex-wrap min-h-100 max-sm:flex-col">
+          <div className="flex gap-6 items-start justify-start p-4 max-lg:flex-wrap min-h-100 max-md:flex-col max-md:w-full">
 
             {/* Section 1: Change Thana Name */}
-            <div className="bg-white p-6 rounded-xl w-full max-lg:w-[48%] max-w-md shadow h-full max-sm:w-full">
+            <div className="bg-white p-6 rounded-xl w-full max-lg:w-[48%] max-w-md shadow h-full  max-md:w-full">
               <p className="text-lg font-semibold mb-4 text-center">Change Thana name</p>
               <label className="block mb-1">Select Thana to change</label>
 
@@ -1151,7 +1151,7 @@ export default function Page() {
             </div>
 
             {/* Section 2: Create New Thana */}
-            <div className="bg-white p-6 rounded-xl w-full max-w-md max-lg:w-[48%] shadow max-sm:w-full">
+            <div className="bg-white p-6 rounded-xl w-full max-w-md max-lg:w-[48%] shadow  max-md:w-full">
               <p className="text-lg font-semibold mb-4 text-center">Create New Thana with Details</p>
               <label className="block mb-1">Thana Name</label>
               <input
@@ -1201,7 +1201,7 @@ export default function Page() {
             </div>
 
             {/* Section 3: Change User Info */}
-            <div className="bg-white p-6 rounded-xl w-full max-w-md shadow max-sm:w-full max-lg:w-[48%]">
+            <div className="bg-white p-6 rounded-xl w-full max-w-md shadow  max-md:w-full max-lg:w-[48%]">
               <p className="text-lg font-semibold mb-4 text-center">Change User Contact Info</p>
               <label className="block mb-1">Choose credentials to update</label>
               <select
@@ -1246,12 +1246,12 @@ export default function Page() {
 
       {(user.role == "admin" || user.role == "super admin") && (
 
-        < div className='flex items-center flex-col gap-4'>
+        < div className='flex items-center flex-col gap-4 w-full'>
           <p className='text-center px-5 text-2xl font-semibold text-gray-600'>Direct Deletion Access</p>
           <div className='flex items-start justify-evenly'>
 
           </div>
-          <div className='bg-white p-6 rounded-xl w-full max-w-md shadow max-sm:w-full max-lg:w-[48%]'>
+          <div className='bg-white p-6 rounded-xl max-w-md shadow max-sm:w-full  w-full'>
             <p className="text-lg font-semibold mb-4 text-center">Detele Property Records</p>
             <label className="block mb-1">Property Id to be <span className='text-red-500'>deleted</span></label>
 

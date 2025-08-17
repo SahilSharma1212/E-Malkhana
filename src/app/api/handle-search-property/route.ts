@@ -65,9 +65,13 @@ export async function POST(req: NextRequest) {
       const from = new Date(searchValue);
       const to = new Date(searchValue);
       to.setDate(to.getDate() + 1);
+      
+      // Use property_actually_added_at for created_at category, date_of_seizure for seizuredate
+      const columnToSearch = searchCategory === "created_at" ? "property_actually_added_at" : "date_of_seizure";
+      
       query = query
-        .gte(searchCategory === "created_at" ? "created_at" : "date_of_seizure", from.toISOString())
-        .lt(searchCategory === "created_at" ? "created_at" : "date_of_seizure", to.toISOString());
+        .gte(columnToSearch, from.toISOString())
+        .lt(columnToSearch, to.toISOString());
     } else {
       query = query.ilike(column, `%${searchValue.trim()}%`);
     }

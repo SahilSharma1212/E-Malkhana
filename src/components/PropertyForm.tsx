@@ -432,7 +432,8 @@ export default function PropertyForm() {
           serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
           type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
           updated_by: normalizeText(user.name.toLowerCase()),
-          io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : null
+          io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : null,
+          property_actually_added_at:new Date().toISOString(),
         })
         .eq("qr_id", window.location.href);
 
