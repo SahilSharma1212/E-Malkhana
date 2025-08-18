@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function Page() {
     const [signinSuccessfull, setSignInSuccessfull] = useState(false)
+    const [phoneloginredirection,setPhoneloginredirection]= useState(false)
 
     const handleGoogleSignIn = async () => {
 
@@ -64,7 +65,7 @@ export default function Page() {
                     {/* Google */}
                     <div className="flex justify-between items-center pt-4">
                         <button
-                            className="bg-blue-500 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-md transition-all duration-200 w-full flex justify-center items-center gap-2"
+                            className="bg-blue-500 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-md transition-all duration-200 w-full flex justify-center items-center gap-2 cursor-pointer"
                             onClick={handleGoogleSignIn}
                         >
                             <FaGoogle />
@@ -83,21 +84,24 @@ export default function Page() {
                     {/* Phone OTP */}
                     <div className="flex justify-between items-center pt-2">
                         <button
-                            className="bg-gray-900 hover:bg-gray-700 text-white font-medium px-5 py-2 rounded-md transition-all duration-200 w-full flex justify-center items-center gap-2"
+                            className="bg-gray-900 hover:bg-gray-700 text-white font-medium px-5 py-2 rounded-md transition-all duration-200 w-full flex justify-center items-center gap-2 cursor-pointer"
                             onClick={(e) => {
                                 e.preventDefault()
-                                toast("Feature not added yet")
+                                setPhoneloginredirection(true)
                                 window.location.href = "/otp-login"
                             }}
+                            disabled={phoneloginredirection}
                         >
-                            <MdOutlinePhoneIphone />
+                            {phoneloginredirection?<p className='text-white'>
+                                <Loader2 className='animate-spin'/>
+                            </p>:<><MdOutlinePhoneIphone />
                             <p className='text-white max-sm:hidden'>
                                 Sign in using OTP
                             </p>
 
                             <p className='text-white sm:hidden'>
                                 OTP
-                            </p>
+                            </p></>}
                         </button>
 
 

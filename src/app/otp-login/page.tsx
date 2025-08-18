@@ -57,8 +57,10 @@ export default function OTPLoginPage() {
       <div className="w-full max-w-md p-6 rounded-xl shadow-lg border border-gray-200 bg-white max-sm:w-[95%] flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold mb-6 text-center text-blue-600 flex items-center justify-center gap-2">
           OTP Login <MdOutlinePhoneIphone size={30} />
-        </h1>
 
+
+        </h1>
+        <span className="text-red-500">This is not a functional page but a dummy UI</span>
         {!isOtpSent ? (
           <div className="space-y-4">
             <div className="flex items-center border border-gray-300 rounded-lg mb-4">
@@ -102,8 +104,8 @@ export default function OTPLoginPage() {
                   onClick={handleResendOtp}
                   disabled={isResendDisabled}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 px-6 rounded-md text-base font-medium transition whitespace-nowrap ${isResendDisabled
-                      ? "bg-gray-400 text-white cursor-not-allowed"
-                      : "bg-gray-600 text-white hover:bg-gray-700"
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-gray-600 text-white hover:bg-gray-700"
                     }`}
                 >
                   {isResendDisabled ? `Resend OTP (${resendTimer}s)` : "Resend OTP"}
@@ -118,3 +120,4 @@ export default function OTPLoginPage() {
     </div>
   );
 }
+

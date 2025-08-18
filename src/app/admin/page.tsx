@@ -325,7 +325,7 @@ export default function Page() {
         newusername,
         newuserEmail,
         newuserRole,
-        newuserPhone,
+        newuserPhone:"+91"+newuserPhone,
         newuserThana,
         updatedBy: user.name,
       });
@@ -429,44 +429,47 @@ export default function Page() {
   };
 
   const handleNewCredentialChange = async () => {
-    setIsCredentialUpdating(true);
+  setIsCredentialUpdating(true);
 
-    if (
-      newCredentialValue.trim() === "" ||
-      newCredentialValueStyle.trim() === "" ||
-      existingCredentialValue.trim() === ""
-    ) {
-      toast.error("Please fill all the fields");
-      setIsCredentialUpdating(false);
-      return;
+  if (
+    newCredentialValue.trim() === "" ||
+    newCredentialValueStyle.trim() === "" ||
+    existingCredentialValue.trim() === ""
+  ) {
+    toast.error("Please fill all the fields");
+    setIsCredentialUpdating(false);
+    return;
+  }
+
+  try {
+    // Prepend "+91" to newCredentialValue if the credential type is phone
+    const updatedCredentialValue = newCredentialValueStyle === "phone" ? `+91${newCredentialValue}` : newCredentialValue;
+
+    const response = await axios.post<APIResponse>("/api/update-credential", {
+      existingCredentialValue,
+      newCredentialValue: updatedCredentialValue,
+      newCredentialValueStyle,
+      updatedBy: user.name,
+    });
+
+    const { success, message } = response.data;
+
+    if (success) {
+      toast.success(message);
+    } else {
+      toast.error(message);
     }
-
-    try {
-      const response = await axios.post<APIResponse>("/api/update-credential", {
-        existingCredentialValue,
-        newCredentialValue,
-        newCredentialValueStyle,
-        updatedBy: user.name,
-      });
-
-      const { success, message } = response.data;
-
-      if (success) {
-        toast.success(message);
-      } else {
-        toast.error(message);
-      }
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        const data = error.response?.data as APIResponse;
-        toast.error(data?.message || "Server error occurred");
-      } else {
-        toast.error("Unexpected error occurred");
-      }
-    } finally {
-      setIsCredentialUpdating(false);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as APIResponse;
+      toast.error(data?.message || "Server error occurred");
+    } else {
+      toast.error("Unexpected error occurred");
     }
-  };
+  } finally {
+    setIsCredentialUpdating(false);
+  }
+};
 
   const clearPropertyRecords = async () => {
     // Input validation
