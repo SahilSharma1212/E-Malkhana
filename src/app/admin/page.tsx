@@ -594,7 +594,13 @@ export default function Page() {
           property_id: null,
           // Optionally clear the file URLs as well
           image_url: null,
-          pdf_urls: null
+          pdf_urls: null,
+          police_station: null,
+          place_of_seizure: null,
+          serial_number_from_register: null,
+          type_of_seizure: null,
+          under_section: null,
+          io_batch_number:null
         })
         .eq("property_id", propertyId);
 

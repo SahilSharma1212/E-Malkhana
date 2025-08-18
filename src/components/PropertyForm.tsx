@@ -434,7 +434,7 @@ export default function PropertyForm() {
           updated_by: normalizeText(user.name.toLowerCase()),
           io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : null,
           property_actually_added_at:new Date().toISOString(),
-          updated_at:new Date().toISOString(),
+          updation_date:new Date().toISOString(),
         })
         .eq("qr_id", window.location.href);
 
