@@ -1,7 +1,7 @@
 "use client";
 import supabase from "@/config/supabaseConnect";
 import axios from "axios";
-import { Copy, FileText, FolderUp, Plus, X } from "lucide-react";
+import { Copy, FileText, FolderUp, Loader2, Plus, Upload, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, FormEvent, useRef, use } from "react";
@@ -73,6 +73,102 @@ export default function Page({ params }: PageProps) {
     role: "",
     thana: "",
   });
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (files: File[]) => {
+    if (!propertyDetails) return;
+
+    setUploadingImages(true);
+
+    try {
+      // Prepare files with type (following your existing structure)
+      const selectedFiles = files.map(file => ({ file, type: 'image' }));
+
+      const uploadPromises = selectedFiles.map(async ({ file, type }) => {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          toast.error(`${file.name} is not an image file`);
+          return null;
+        }
+
+        // Validate file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is larger than 5MB`);
+          return null;
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const bucket = type === 'image' ? 'property-images' : 'property-images';
+        const filePath = `image_proof/property-images/image_proof/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error(`Upload error for ${file.name}:`, uploadError);
+          toast.error(`Failed to upload ${file.name}`);
+          return null;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+
+        return urlData.publicUrl;
+      });
+
+      // Wait for all uploads to complete
+      const results = await Promise.all(uploadPromises);
+
+      // Filter out failed uploads (null values)
+      const successfulUrls = results.filter(url => url !== null) as string[];
+
+      if (successfulUrls.length > 0) {
+        // Update the property record in the database
+        const updatedImageUrls = [...(propertyDetails.image_url || []), ...successfulUrls];
+
+        const { error: updateError } = await supabase
+          .from("property_table")
+          .update({ image_url: updatedImageUrls })
+          .eq("property_id", propertyDetails.property_id);
+
+        if (updateError) {
+          console.error("Database update error:", updateError);
+          toast.error("Failed to update property images");
+          return;
+        }
+
+        // Update local state
+        setPropertyDetails(prev => prev ? {
+          ...prev,
+          image_url: updatedImageUrls
+        } : null);
+
+        toast.success(`${successfulUrls.length} image(s) uploaded successfully`);
+
+        if (results.length > successfulUrls.length) {
+          const failedCount = results.length - successfulUrls.length;
+          toast.error(`${failedCount} image(s) failed to upload`);
+        }
+
+        setNewImages([]);
+        if (imageInputRef.current) {
+          imageInputRef.current.value = "";
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      toast.error("Failed to upload images");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+
 
   // Fetch property details and status logs
   useEffect(() => {
@@ -375,27 +471,126 @@ export default function Page({ params }: PageProps) {
             </div>
           </div>
         )}
-
+        {/* Rendering images if available... */}
         {!loading && hasAccess && propertyDetails?.image_url && propertyDetails.image_url.length > 0 && (
+          // Replace the existing upload div with this enhanced version:
           <div className="mb-8 bg-blue-50 rounded-md p-4 shadow-sm w-full">
             <h2 className="text-2xl font-bold mb-4 text-center text-gray-700">Property Images</h2>
             <div className="flex flex-wrap justify-center gap-4">
-              {propertyDetails.image_url.map((url, idx) => (
-                <div key={idx} className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
-                  <Image
-                    src={url}
-                    alt={`Property Image ${idx + 1}`}
-                    width={240}
-                    height={240}
-                    className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
-                    unoptimized
+              {propertyDetails.image_url && propertyDetails.image_url.length > 0 &&
+                propertyDetails.image_url.map((url, idx) => (
+                  <div key={idx} className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
+                    <Image
+                      src={url}
+                      alt={`Property Image ${idx + 1}`}
+                      width={240}
+                      height={240}
+                      className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
+                      unoptimized
+                    />
+                  </div>
+                ))
+              }
+
+              {/* Enhanced Upload Area */}
+              {canAddLogs() && (
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files ? Array.from(e.target.files) : [];
+                      if (files.length > 0) {
+                        setNewImages(files);
+                      }
+                    }}
+                    className="hidden"
+                    ref={imageInputRef}
+                    disabled={uploadingImages}
                   />
-                </div>
-              ))}
+
+                  <div
+                    className="h-[240px] w-[240px] border border-dashed border-gray-700 rounded-xl bg-black/5 flex items-center justify-center flex-col gap-3 relative cursor-pointer hover:bg-black/10 transition-colors"
+                    onClick={() => !uploadingImages && imageInputRef.current?.click()}
+                  >
+                    {uploadingImages ? (
+                      <>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-700"></div>
+                        <p className="text-sm">Uploading...</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="text-gray-600" size={32} />
+                        <p className="text-gray-600 font-medium">Upload Images</p>
+                        <p className="text-xs text-gray-500 text-center px-2">
+                          Click to select multiple images
+                          <br />
+                          (Max 5MB each)
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Preview selected images before upload */}
+            {newImages.length > 0 && (
+              <div className="mt-4 p-4 bg-black/10 rounded border">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Selected Image</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleImageUpload(newImages)}
+                      disabled={uploadingImages}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400 text-sm"
+                    >
+                      {uploadingImages ? <Loader2 /> : "Upload"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewImages([]);
+                        if (imageInputRef.current) imageInputRef.current.value = "";
+                      }}
+                      disabled={uploadingImages}
+                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:bg-red-400 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center">
+                  {newImages.map((file, idx) => (
+                    <div key={idx} className="relative">
+                      <div className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
+                        <Image
+                          src={URL.createObjectURL(file)}
+                          alt={`Preview ${idx + 1}`}
+                          width={200}
+                          height={200}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <button
+                        onClick={() => setNewImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                        disabled={uploadingImages}
+                      >
+                        X
+                      </button>
+                      <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Logs */}
         {!loading && hasAccess && (
           <div className="flex flex-col items-center">
             <h1 className="text-3xl font-bold text-blue-700 mb-2">Status Logs</h1>
@@ -461,7 +656,7 @@ export default function Page({ params }: PageProps) {
             </div>
           </div>
         )}
-
+        {/* Adding Logs */}
         {!loading && hasAccess && canAddLogs() && (
           <div className="p-4 bg-white rounded-md mt-3 flex items-start justify-center flex-col">
             <button
