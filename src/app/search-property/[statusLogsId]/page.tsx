@@ -1,4 +1,5 @@
 "use client";
+import Loading from "@/app/loading";
 import supabase from "@/config/supabaseConnect";
 import axios from "axios";
 import { Copy, FileText, FolderUp, Loader2, Plus, Upload, X } from "lucide-react";
@@ -402,7 +403,7 @@ export default function Page({ params }: PageProps) {
   return (
     <div className="bg-blue-100 p-2 min-h-screen">
       <div className="p-3 bg-white rounded-md pl-8 max-sm:pl-4 pt-7">
-        {loading && <div className="text-center">Loading...</div>}
+        {loading && <div className="flex items-center justify-center text-blue-500"><Loader2 className="animate-spin" /></div>}
 
         {!loading && propertyNotFound && (
           <div className="text-center text-red-600 font-semibold">
