@@ -493,7 +493,7 @@ export default function Page({ params }: PageProps) {
                 ))
               }
 
-              {/* Enhanced Upload Area */}
+              {/*Image Upload Area */}
               {canAddLogs() && (
                 <>
                   <input
@@ -615,9 +615,9 @@ export default function Page({ params }: PageProps) {
                   <tbody>
                     {statusLogs.map((log, index) => (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="border px-4 py-2">{log.status_remarks}</td>
-                        <td className="border px-4 py-2">{log.handling_officer}</td>
-                        <td className="border px-4 py-2">{log.updated_by}</td>
+                        <td className="border px-4 py-2">{log.status_remarks ? log.status_remarks : "N/A"}</td>
+                        <td className="border px-4 py-2">{log.handling_officer ? log.handling_officer : "N/A"}</td>
+                        <td className="border px-4 py-2">{log.updated_by ? log.updated_by : "N/A"}</td>
                         <td className="border px-4 py-2">
                           {new Date(log.time_of_event).toLocaleDateString()}
                         </td>
