@@ -454,11 +454,25 @@ export default function Page({ params }: PageProps) {
                   { label: "Box Number", value: propertyDetails.box_number },
                   { label: "Court Name", value: propertyDetails.name_of_court },
                   { label: "Offence Category", value: propertyDetails.category_of_offence },
-                  { label: "Seizure Date", value: new Date(propertyDetails.date_of_seizure).toLocaleString() },
+                  {
+                    label: "Seizure Date", value: new Date(propertyDetails.date_of_seizure).toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })
+                  },
                   { label: "Investigating Officer", value: propertyDetails.name_of_io },
                   { label: "Case Status", value: propertyDetails.case_status },
                   { label: "Remarks", value: propertyDetails.remarks },
-                  { label: "Created At", value: new Date(propertyDetails.created_at).toLocaleString() },
+                  {
+                    label: "Created At", value: new Date(propertyDetails.created_at).toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })
+                  },
                   { label: "Police Station", value: propertyDetails.police_station },
                 ].map((item, index) => (
                   <div key={index} className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
@@ -619,10 +633,20 @@ export default function Page({ params }: PageProps) {
                         <td className="border px-4 py-2">{log.handling_officer ? log.handling_officer : "N/A"}</td>
                         <td className="border px-4 py-2">{log.updated_by ? log.updated_by : "N/A"}</td>
                         <td className="border px-4 py-2">
-                          {new Date(log.time_of_event).toLocaleDateString()}
+                          {new Date(log.time_of_event).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
                         </td>
                         <td className="border px-4 py-2">
-                          {new Date(log.created_at).toLocaleString()}
+                          {new Date(log.created_at).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </td>
                         <td className="border px-4 py-2">{log.status}</td>
                         <td className="border px-4 py-2">{log.reason}</td>
