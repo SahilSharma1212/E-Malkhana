@@ -1,6 +1,6 @@
 "use client";
-import { Ban, Database, Logs, Search } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { Ban, Database, Logs, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
@@ -37,12 +37,17 @@ export default function Page() {
   const router = useRouter();
   const [searchCategory, setSearchCategory] = useState("property");
   const [searchValue, setSearchValue] = useState("");
-  const [rackBoxType, setRackBoxType] = useState("rack"); // "rack" or "box"
+  const [rackBoxType, setRackBoxType] = useState("rack");
   const [propertyData, setPropertyData] = useState<DataInterface[]>([]);
   const [rackBoxData, setRackBoxData] = useState<RackBoxData[]>([]);
   const [rackBoxLoading, setRackBoxLoading] = useState(false);
   const [rackBoxError, setRackBoxError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 60;
+  
   const [userData, setUserData] = useState({
     email: "",
     name: "",
@@ -50,7 +55,7 @@ export default function Page() {
     thana: "",
   });
 
-  let column = "property_id"; // default
+  let column = "property_id";
 
   switch (searchCategory) {
     case "property":
@@ -73,9 +78,63 @@ export default function Page() {
       break;
     case "offence":
     case "io":
-      // Handled separately in handleSearch
       break;
   }
+
+  // Pagination calculations
+  const totalPages = Math.ceil(propertyData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  
+  // Get current page data
+  const currentPageData = useMemo(() => {
+    return propertyData.slice(startIndex, endIndex);
+  }, [propertyData, startIndex, endIndex]);
+
+  // Reset to first page when data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [propertyData]);
+
+  // Pagination handlers
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToLastPage = () => setCurrentPage(totalPages);
+  const goToPreviousPage = () => setCurrentPage(Math.max(1, currentPage - 1));
+  const goToNextPage = () => setCurrentPage(Math.min(totalPages, currentPage + 1));
+
+  // Generate page numbers for pagination controls
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i);
+        }
+      } else if (currentPage >= totalPages - 2) {
+        for (let i = totalPages - 4; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+          pages.push(i);
+        }
+      }
+    }
+    
+    return pages;
+  };
 
   // Fetch rack and box data
   const fetchRackBoxData = async () => {
@@ -104,7 +163,6 @@ export default function Page() {
         console.error("❌ Error:", response.data?.error || "Unknown error");
         setRackBoxError(response.data?.error || "Unknown error");
         
-        // TEMPORARY: Add test data for debugging
         console.log("🧪 Adding test data for debugging");
         setRackBoxData([
           { racks: ["R001", "R002", "R003"], boxes: ["B001", "B002", "B003"] },
@@ -121,7 +179,6 @@ export default function Page() {
         setRackBoxError("Network error");
       }
       
-      // TEMPORARY: Add test data even on error
       console.log("🧪 Adding test data due to error");
       setRackBoxData([
         { racks: ["R001", "R002", "R003"], boxes: ["B001", "B002", "B003"] },
@@ -232,7 +289,8 @@ export default function Page() {
 
   const handleReset = async () => {
     setSearchValue("");
-    setPropertyData([]); // Clear the table
+    setPropertyData([]);
+    setCurrentPage(1);
   };
 
   // Get unique rack numbers and box numbers from arrays
@@ -244,7 +302,6 @@ export default function Page() {
     rackBoxData.flatMap(item => item.boxes || [])
   )].filter(Boolean);
 
-  // Debug logs
   console.log("🔍 Debug Info:", {
     rackBoxDataLength: rackBoxData.length,
     rawRackBoxData: rackBoxData,
@@ -284,7 +341,7 @@ export default function Page() {
               </select>
             </div>
 
-            {/* Rack/Box Type Selection (only shown when rackbox is selected) */}
+            {/* Rack/Box Type Selection */}
             {searchCategory === "rackbox" && (
               <div className='flex items-center gap-2 max-sm:w-full'>
                 <label htmlFor="rackBoxType" className='text-white font-semibold max-sm:text-sm'>Type</label>
@@ -293,7 +350,7 @@ export default function Page() {
                   value={rackBoxType}
                   onChange={(e) => {
                     setRackBoxType(e.target.value);
-                    setSearchValue(""); // Reset search value when type changes
+                    setSearchValue("");
                   }}
                   className='bg-white h-8 w-32 rounded-sm px-2 outline-none max-md:w-full'
                 >
@@ -388,7 +445,6 @@ export default function Page() {
               <Ban className='text-red-300' />
               <p className='max-lg:hidden max-md:visible'>Reset</p>
             </button>
-            {/* Optional: Button to fetch all properties */}
             <button
               type='button'
               className='bg-white py-1 rounded-sm px-2 outline-none flex justify-center items-center gap-2 hover:bg-emerald-100 max-md:px-2'
@@ -401,10 +457,73 @@ export default function Page() {
           </div>
         </form>
 
+        {/* Results Info and Pagination Controls */}
+        {propertyData.length > 0 && (
+          <div className='flex justify-between items-center px-4 py-2 bg-gray-50 rounded-sm text-sm'>
+            <div className='text-gray-600'>
+              Showing {startIndex + 1} to {Math.min(endIndex, propertyData.length)} of {propertyData.length} results
+            </div>
+            
+            {totalPages > 1 && (
+              <div className='flex items-center gap-2 max-sm:hidden'>
+                <button
+                  onClick={goToFirstPage}
+                  disabled={currentPage === 1}
+                  className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  First
+                </button>
+                
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1'
+                >
+                  <ChevronLeft size={16} />
+                  Prev
+                </button>
+                
+                <div className='flex gap-1'>
+                  {getPageNumbers().map(pageNum => (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      className={`px-3 py-1 rounded border ${
+                        currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1'
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+                
+                <button
+                  onClick={goToLastPage}
+                  disabled={currentPage === totalPages}
+                  className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  Last
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Table Section */}
-        <div className='overflow-auto'>
+        <div className='overflow-auto flex-1'>
           <table className='min-w-full border border-gray-300 text-sm text-left rounded-md'>
-            <thead className='bg-gray-100 text-gray-700 font-semibold'>
+            <thead className='bg-gray-100 text-gray-700 font-semibold sticky top-0'>
               <tr>
                 <th className='px-3 py-2 border'>S.No</th>
                 <th className='px-3 py-2 border'>Property Number</th>
@@ -426,16 +545,16 @@ export default function Page() {
               </tr>
             </thead>
             <tbody>
-              {propertyData.length === 0 ? (
+              {currentPageData.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className='text-center py-4 text-gray-500 max-sm:text-start px-3'>
+                  <td colSpan={17} className='text-center py-4 text-gray-500 max-sm:text-start px-3'>
                     {loading ? "Loading..." : "Search properties using parameters"}
                   </td>
                 </tr>
               ) : (
-                propertyData.map((item, index) => (
+                currentPageData.map((item, index) => (
                   <tr key={item.id || index} className='hover:bg-gray-50'>
-                    <td className='px-3 py-2 border' title={item.description}>{index + 1}</td>
+                    <td className='px-3 py-2 border' title={item.description}>{startIndex + index + 1}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.property_id}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.fir_number}</td>
                     <td className='px-3 py-2 border' title={item.description}>{item.serial_number_from_register}</td>
@@ -465,6 +584,63 @@ export default function Page() {
             </tbody>
           </table>
         </div>
+
+        {/* Bottom Pagination */}
+        {propertyData.length > 0 && totalPages > 1 && (
+          <div className='flex justify-center items-center py-2 bg-gray-50 rounded-sm'>
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={goToFirstPage}
+                disabled={currentPage === 1}
+                className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm'
+              >
+                First
+              </button>
+              
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm'
+              >
+                <ChevronLeft size={14} />
+                Prev
+              </button>
+              
+              <div className='flex gap-1'>
+                {getPageNumbers().map(pageNum => (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`px-2 py-1 rounded border text-sm ${
+                      currentPage === pageNum
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm'
+              >
+                Next
+                <ChevronRight size={14} />
+              </button>
+              
+              <button
+                onClick={goToLastPage}
+                disabled={currentPage === totalPages}
+                className='px-2 py-1 rounded bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm'
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
