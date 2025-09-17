@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { ArrowRightLeft, Eye, EyeClosed } from "lucide-react";
+import { ArrowRightLeft, Eye, EyeClosed, Pen, X } from "lucide-react";
 
 type PropertyFormData = {
   courtName: string;
@@ -26,6 +26,38 @@ type PropertyFormData = {
   typeOfSeizure: string;
   batchNumber: string;
 };
+
+type SpecialCategoryDetailsType = {
+  itemWorth: number,
+  specialCategoryType: string
+}
+
+type dataBeforeUpdate = {
+  property_id: string,
+  name_of_court: string,
+  fir_number: string,
+  category_of_offence: string,
+  under_section: string[],
+  date_of_seizure: string,
+  description: string,
+  name_of_io: string,
+  case_status: string,
+  rack_number: string,
+  box_number: string,
+  remarks: string,
+  police_station: string,
+  image_url: string[],
+  pdf_urls: string[],
+  place_of_seizure: string,
+  serial_number_from_register: string,
+  type_of_seizure: string,
+  updated_by: string,
+  io_batch_number: string,
+  property_actually_added_at: string,
+  updation_date: string,
+  special_category_type?: string,
+  special_category_worth?: number,
+}
 
 export default function PropertyForm() {
   const router = useRouter();
@@ -62,6 +94,11 @@ export default function PropertyForm() {
   const [isSpecialPlace, setIsSpecialPlace] = useState<boolean>(false);
   const [fileType, setFileType] = useState<string>("image");
 
+  const [isSpecialDivVisible, setIsSpecialDivVisible] = useState(false)
+  const [specialCategoryDetails, setSpecialCategoryDetails] = useState<SpecialCategoryDetailsType>({
+    specialCategoryType: "",
+    itemWorth: 0
+  })
   const [formData, setFormData] = useState<PropertyFormData>({
     courtName: "",
     firNumber: "",
@@ -82,6 +119,8 @@ export default function PropertyForm() {
   });
 
   let PropId: string;
+
+  const [isSpecialProperty, setIsSpecialProperty] = useState(false)
 
   // Cleanup preview URLs to prevent memory leaks
   useEffect(() => {
@@ -251,191 +290,211 @@ export default function PropertyForm() {
     setPreviewUrls(newPreviews);
   };
 
-  // Fixed handleSubmit with better error handling and mobile compatibility
-  const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent default form submission if event exists
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+  // Prevent default form submission if event exists
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
 
-    console.log("Submit button clicked - Form Data Section:", formData.section);
-    console.log("Complete form data:", formData);
+  console.log("Submit button clicked - Form Data Section:", formData.section);
+  console.log("Complete form data:", formData);
 
-    if (user.name === "") {
-      toast.error("Not logged in");
+  if (user.name === "") {
+    toast.error("Not logged in");
+    return;
+  }
+
+  if (placeOfSeizure === "Other" && !customplaceOfSeizure.trim()) {
+    toast.error("Please enter a custom Place of Seizure.");
+    return;
+  }
+  if (typeOfSeizure === "Other" && !customTypeOfSeizure.trim()) {
+    toast.error("Please enter a custom Type of Seizure.");
+    return;
+  }
+  if (offenceCategory === "Other" && !customOffenceCategory.trim()) {
+    toast.error("Please enter a custom Offence Category.");
+    return;
+  }
+
+  // Special category validation
+  if (isSpecialProperty) {
+    if (!specialCategoryDetails.specialCategoryType.trim()) {
+      toast.error("Please select a Special Category Type.");
       return;
     }
+    if (specialCategoryDetails.itemWorth <= 0) {
+      toast.error("Please enter a valid worth amount for the special category item.");
+      return;
+    }
+  }
 
-    if (placeOfSeizure === "Other" && !customplaceOfSeizure.trim()) {
-      toast.error("Please enter a custom Place of Seizure.");
+  if (isSpecialPlace) {
+    if (!specialPlace.trim()) {
+      toast.error("Please enter the Special Place");
       return;
     }
-    if (typeOfSeizure === "Other" && !customTypeOfSeizure.trim()) {
-      toast.error("Please enter a custom Type of Seizure.");
+  } else {
+    if (!formData.rackNumber.trim() || !formData.boxNumber.trim()) {
+      toast.error("Please enter Rack and Box numbers");
       return;
     }
-    if (offenceCategory === "Other" && !customOffenceCategory.trim()) {
-      toast.error("Please enter a custom Offence Category.");
-      return;
+  }
+
+  const finalPlaceOfSeizure = placeOfSeizure === "Other"
+    ? `other - ${customplaceOfSeizure}`
+    : placeOfSeizure;
+
+  const finalTypeOfSeizure = typeOfSeizure === "Other"
+    ? `other - ${customTypeOfSeizure}`
+    : typeOfSeizure;
+
+  const finalOffenceCategory = offenceCategory === "Other"
+    ? `other - ${customOffenceCategory}`
+    : offenceCategory;
+
+  if (!qrId) {
+    toast.error("Invalid QR ID in URL.");
+    return;
+  }
+
+  // Enhanced field validation with specific field names and Hindi support
+  const fieldValidation = [
+    { value: formData.courtName, name: "Name of Court" },
+    { value: formData.firNumber, name: "FIR Number" },
+    {
+      value: offenceCategory === "Other" ? customOffenceCategory : offenceCategory,
+      name: "Category of Offence"
+    },
+    { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
+    { value: formData.seizureDate, name: "Date of Seizure" },
+    { value: formData.description1, name: "Description" },
+    { value: formData.ioName, name: "Name of IO" },
+    { value: formData.caseStatus, name: "Case Status" },
+    { value: formData.remarks, name: "Remarks" },
+    { value: formData.policeStation, name: "Police Station" },
+    {
+      value: placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure,
+      name: "Place Of Seizure"
+    },
+    { value: formData.registerSerialNumber, name: "Serial Number from Register" },
+    {
+      value: typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure,
+      name: "Type of Seizure"
+    },
+    { value: user.name, name: "User Authentication" },
+  ];
+
+  // Find missing fields with better Unicode handling
+  const missingFields = fieldValidation.filter(field => {
+    if (!field.value) return true;
+    const normalizedValue = field.value.toString().normalize('NFC').trim();
+    return normalizedValue === '';
+  });
+
+  // Check for missing files - only images are required, PDFs are optional
+  const imageFiles = selectedFiles.filter(f => f.type === 'image');
+  const missingFiles = imageFiles.length === 0;
+
+  // Show specific error messages
+  if (missingFields.length > 0 || missingFiles) {
+    let errorMessage = "";
+
+    if (missingFields.length === 1) {
+      errorMessage = `Please fill the "${missingFields[0].name}" field`;
+    } else if (missingFields.length > 1) {
+      errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
     }
 
-    if (isSpecialPlace) {
-      if (!specialPlace.trim()) {
-        toast.error("Please enter the Special Place");
-        return;
+    if (missingFiles) {
+      if (errorMessage) {
+        errorMessage += " and select at least one image";
+      } else {
+        errorMessage = "Please select at least one image";
       }
-    } else {
-      if (!formData.rackNumber.trim() || !formData.boxNumber.trim()) {
-        toast.error("Please enter Rack and Box numbers");
-        return;
+    }
+
+    errorMessage += " before submitting.";
+    toast.error(errorMessage);
+    return;
+  }
+
+  setUploading(true);
+
+  try {
+    // Upload files
+    const uploadPromises = selectedFiles.map(async ({ file, type }) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const bucket = type === 'image' ? 'property-images/image_proof' : 'property-images/pdf_reports';
+      const filePath = `${bucket}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw new Error(`File upload failed: ${uploadError.message}`);
       }
-    }
 
-    const finalPlaceOfSeizure = placeOfSeizure === "Other"
-      ? `other - ${customplaceOfSeizure}`
-      : placeOfSeizure;
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
 
-    const finalTypeOfSeizure = typeOfSeizure === "Other"
-      ? `other - ${customTypeOfSeizure}`
-      : typeOfSeizure;
-
-    const finalOffenceCategory = offenceCategory === "Other"
-      ? `other - ${customOffenceCategory}`
-      : offenceCategory;
-
-    if (!qrId) {
-      toast.error("Invalid QR ID in URL.");
-      return;
-    }
-
-    // Enhanced field validation with specific field names and Hindi support
-    const fieldValidation = [
-      { value: formData.courtName, name: "Name of Court" },
-      { value: formData.firNumber, name: "FIR Number" },
-      {
-        value: offenceCategory === "Other" ? customOffenceCategory : offenceCategory,
-        name: "Category of Offence"
-      },
-      { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
-      { value: formData.seizureDate, name: "Date of Seizure" },
-      { value: formData.description1, name: "Description" },
-      { value: formData.ioName, name: "Name of IO" },
-      { value: formData.caseStatus, name: "Case Status" },
-      { value: formData.remarks, name: "Remarks" },
-      { value: formData.policeStation, name: "Police Station" },
-      {
-        value: placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure,
-        name: "Place Of Seizure"
-      },
-      { value: formData.registerSerialNumber, name: "Serial Number from Register" },
-      {
-        value: typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure,
-        name: "Type of Seizure"
-      },
-      { value: user.name, name: "User Authentication" },
-      // Batch Number removed from required fields - now optional
-    ];
-
-    // Find missing fields with better Unicode handling
-    const missingFields = fieldValidation.filter(field => {
-      if (!field.value) return true;
-      // Normalize and trim the value to handle Hindi text properly
-      const normalizedValue = field.value.toString().normalize('NFC').trim();
-      return normalizedValue === '';
+      return { url: urlData.publicUrl, type };
     });
 
-    // Check for missing files - only images are required, PDFs are optional
-    const imageFiles = selectedFiles.filter(f => f.type === 'image');
-    const missingFiles = imageFiles.length === 0;
+    const uploadedFiles = await Promise.all(uploadPromises);
+    const imageUrls = uploadedFiles.filter(f => f.type === 'image').map(f => f.url);
+    const pdfUrls = uploadedFiles.filter(f => f.type !== 'image').map(f => f.url);
 
-    // Show specific error messages
-    if (missingFields.length > 0 || missingFiles) {
-      let errorMessage = "";
+    const newPropertyId = uuidv4();
+    PropId = newPropertyId;
+    setUuid(formData.firNumber);
+    setRoutingUUID(newPropertyId);
 
-      if (missingFields.length === 1) {
-        errorMessage = `Please fill the "${missingFields[0].name}" field`;
-      } else if (missingFields.length > 1) {
-        errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
-      }
+    // Normalize all text data before saving to ensure proper Unicode encoding
+    const normalizeText = (text: string) => text.normalize('NFC').trim();
 
-      if (missingFiles) {
-        if (errorMessage) {
-          errorMessage += " and select at least one image";
-        } else {
-          errorMessage = "Please select at least one image";
-        }
-      }
+    // Prepare the update data object
+    const updateData:dataBeforeUpdate = {
+      property_id: newPropertyId.toLowerCase(),
+      name_of_court: normalizeText(formData.courtName.toLowerCase()),
+      fir_number: normalizeText(formData.firNumber.toLowerCase()),
+      category_of_offence: normalizeText(finalOffenceCategory.toLowerCase()),
+      under_section: formData.section.map((item) => normalizeText(item.toLowerCase())),
+      date_of_seizure: formData.seizureDate.toLowerCase(),
+      description: normalizeText(formData.description1.toLowerCase()),
+      name_of_io: normalizeText(formData.ioName.toLowerCase()),
+      case_status: normalizeText(formData.caseStatus.toLowerCase()),
+      rack_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.rackNumber.toLowerCase(),
+      box_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.boxNumber.toLowerCase(),
+      remarks: normalizeText(formData.remarks.toLowerCase()),
+      police_station: normalizeText(formData.policeStation.toLowerCase()),
+      image_url: imageUrls,
+      pdf_urls: pdfUrls,
+      place_of_seizure: normalizeText(finalPlaceOfSeizure.toLowerCase()),
+      serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
+      type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
+      updated_by: normalizeText(user.name.toLowerCase()),
+      io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : "",
+      property_actually_added_at: new Date().toISOString(),
+      updation_date: new Date().toISOString(),
+    };
 
-      errorMessage += " before submitting.";
-      toast.error(errorMessage);
-      return;
+    // Add special category fields if applicable
+    if (isSpecialProperty) {
+      updateData.special_category_type = normalizeText(specialCategoryDetails.specialCategoryType.toLowerCase());
+      updateData.special_category_worth = specialCategoryDetails.itemWorth;
     }
 
-    setUploading(true);
 
-    try {
-      // Upload files
-      const uploadPromises = selectedFiles.map(async ({ file, type }) => {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const bucket = type === 'image' ? 'property-images/image_proof' : 'property-images/pdf_reports';
-        const filePath = `${bucket}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, file);
-
-        if (uploadError) {
-          throw new Error(`File upload failed: ${uploadError.message}`);
-        }
-
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(filePath);
-
-        return { url: urlData.publicUrl, type };
-      });
-
-      const uploadedFiles = await Promise.all(uploadPromises);
-      const imageUrls = uploadedFiles.filter(f => f.type === 'image').map(f => f.url);
-      const pdfUrls = uploadedFiles.filter(f => f.type !== 'image').map(f => f.url);
-
-      const newPropertyId = uuidv4();
-      PropId = newPropertyId;
-      setUuid(formData.firNumber);
-      setRoutingUUID(newPropertyId);
-
-      // Normalize all text data before saving to ensure proper Unicode encoding
-      const normalizeText = (text: string) => text.normalize('NFC').trim();
 
       // Update existing row with qr_id - with proper Unicode handling
       const { error: updateError } = await supabase
         .from("property_table")
-        .update({
-          property_id: newPropertyId.toLowerCase(),
-          name_of_court: normalizeText(formData.courtName.toLowerCase()),
-          fir_number: normalizeText(formData.firNumber.toLowerCase()),
-          category_of_offence: normalizeText(finalOffenceCategory.toLowerCase()),
-          under_section: formData.section.map((item) => normalizeText(item.toLowerCase())),
-          date_of_seizure: formData.seizureDate.toLowerCase(),
-          description: normalizeText(formData.description1.toLowerCase()),
-          name_of_io: normalizeText(formData.ioName.toLowerCase()),
-          case_status: normalizeText(formData.caseStatus.toLowerCase()),
-          rack_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.rackNumber.toLowerCase(),
-          box_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.boxNumber.toLowerCase(),
-          remarks: normalizeText(formData.remarks.toLowerCase()),
-          police_station: normalizeText(formData.policeStation.toLowerCase()),
-          image_url: imageUrls,
-          pdf_urls: pdfUrls,
-          place_of_seizure: normalizeText(finalPlaceOfSeizure.toLowerCase()),
-          serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
-          type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
-          updated_by: normalizeText(user.name.toLowerCase()),
-          io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : null,
-          property_actually_added_at:new Date().toISOString(),
-          updation_date:new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("qr_id", window.location.href);
 
       if (updateError) {
@@ -469,6 +528,9 @@ export default function PropertyForm() {
 
       setIsSubmitted(true);
       toast.success("Property updated successfully!");
+      if (isSpecialProperty) {
+        toast.success("Special category details saved!");
+      }
       toast.success("Initial status updated");
     } catch (err) {
       toast.error("An unexpected error occurred.");
@@ -517,6 +579,14 @@ export default function PropertyForm() {
 
     // Reset section input
     setSectionInput("");
+
+    // Reset special category fields
+    setIsSpecialProperty(false);
+    setSpecialCategoryDetails({
+      specialCategoryType: "",
+      itemWorth: 0
+    });
+    setIsSpecialDivVisible(false);
 
     setSelectedFiles([]);
     setPreviewUrls(prev => {
@@ -835,6 +905,85 @@ export default function PropertyForm() {
                     placeholder="(optional)"
                   />
                 </div>
+                {/* Special Category */}
+                <div className="flex items-center w-[48%] max-md:w-[80%] max-sm:w-[90%]">
+                  <label className=" max-sm:text-xs max-md:text-sm w-48 font-semibold text-gray-700">
+                    Special Category?
+                  </label>
+                  <input
+                    type="checkbox"
+                    checked={isSpecialProperty}
+                    onChange={(e) => {
+                      setIsSpecialProperty(e.target.checked);
+                      if (!e.target.checked) {
+                        // Reset special category details when unchecked
+                        setSpecialCategoryDetails({
+                          specialCategoryType: "",
+                          itemWorth: 0
+                        });
+                        setIsSpecialDivVisible(false);
+                      }
+                    }}
+                    style={{ accentColor: 'blue' }}
+                    className="size-4"
+                  />
+
+                  {
+                    isSpecialProperty && (
+                      <div className="relative inline">
+                        <button
+                          type="button"
+                          className={`flex rounded border ${isSpecialDivVisible ? "border-green-800" : "border-blue-800"} gap-2 items-center ${isSpecialDivVisible ? "bg-green-500/20" : "bg-blue-500/20"} px-2 ml-2`}
+                          onClick={() => setIsSpecialDivVisible(!isSpecialDivVisible)}
+                        >
+                          <p className="text-sm">{isSpecialDivVisible ? "Done" : "Edit"}</p>
+                          {isSpecialDivVisible ? <X size={10} /> : <Pen size={10} />}
+                        </button>
+                        {isSpecialDivVisible && (
+                          <div className="absolute max-w-64 p-4 bg-white border border-gray-300 rounded shadow-lg bottom-full right-0 mb-2 text-wrap wrap-break-word flex flex-col items-center justify-center gap-3 z-50">
+                            <div>
+                              <p className="text-slate-700 text-sm pb-2 font-semibold">Category <span className="text-red-500">*</span></p>
+                              <select
+                                className="px-2 py-1 rounded-lg focus:border-gray-800 focus:border border border-gray-400 w-54"
+                                value={specialCategoryDetails.specialCategoryType}
+                                onChange={(e) => {
+                                  setSpecialCategoryDetails({
+                                    ...specialCategoryDetails,
+                                    specialCategoryType: e.target.value
+                                  });
+                                }}
+                              >
+                                <option value="">Select category</option>
+                                <option value="cash">Cash</option>
+                                <option value="jewellery">Jewellery</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <p className="text-slate-700 text-sm pb-2 font-semibold">Appx Worth <span className="font-normal text-sm">in Rs</span> <span className="text-red-500">*</span></p>
+                              <input
+                                className="px-2 py-1 rounded-lg focus:border-gray-800 focus:border border border-gray-400 w-54"
+                                type="number"
+                                placeholder="Ex. 3000"
+                                min="1"
+                                value={specialCategoryDetails.itemWorth || ''}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  setSpecialCategoryDetails({
+                                    ...specialCategoryDetails,
+                                    itemWorth: value
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                </div>
+
                 {/* description , name of io , case status , type of seizure */}
                 <div className="flex w-full gap-4 max-md:flex-col items-center">
                   {/* description */}
@@ -1118,7 +1267,7 @@ export default function PropertyForm() {
                 Reset
               </button>
             </div>
-          </div>
+          </div >
         )
       ) : (
 
@@ -1139,7 +1288,8 @@ export default function PropertyForm() {
             </button>
           </div>
         </div>
-      )}
+      )
+      }
     </>
   );
 }
