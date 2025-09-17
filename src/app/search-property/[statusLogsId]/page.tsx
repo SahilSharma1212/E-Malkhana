@@ -44,6 +44,8 @@ interface PropertyDetails {
   qr_id: string;
   police_station: string;
   property_id: string;
+  special_category_type?: string;
+  special_category_worth?: number;
 }
 
 interface PageProps {
@@ -77,6 +79,11 @@ export default function Page({ params }: PageProps) {
   const [newImages, setNewImages] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const eliminateSpecialRecords = () =>{
+    toast.success("Feature not implemented yet")
+  }
+
 
   const handleImageUpload = async (files: File[]) => {
     if (!propertyDetails) return;
@@ -474,6 +481,7 @@ export default function Page({ params }: PageProps) {
                     })
                   },
                   { label: "Police Station", value: propertyDetails.police_station },
+
                 ].map((item, index) => (
                   <div key={index} className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
                     <p>
@@ -482,6 +490,29 @@ export default function Page({ params }: PageProps) {
                     </p>
                   </div>
                 ))}
+
+                {(propertyDetails.special_category_type == null || propertyDetails.special_category_type == "" || propertyDetails.special_category_type == undefined) ? (
+                  <div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5 text-red-500">
+                    <p>
+                      <strong>(Not a special property)</strong>{" "}
+
+                    </p>
+                  </div>
+                ) : (
+                  <><div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
+                    <p>
+                      <strong>Special Property Type : </strong>{" "}
+                      <span className="text-gray-800">{propertyDetails.special_category_type}</span>
+                    </p>
+                  </div>
+                    <div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
+                      <p>
+                        <strong>Property Worth:</strong>{" "}
+                        <span className="text-gray-800">Rs. {propertyDetails.special_category_worth}/-</span>
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -869,6 +900,15 @@ export default function Page({ params }: PageProps) {
                 </div>
               </form>
             )}
+            {/* special property dismantling div */}
+            {(propertyDetails?.special_category_type != '' && propertyDetails?.special_category_type != null && propertyDetails?.special_category_type != undefined) && 
+            (<div className="text-red-900 mt-4 flex items-center max-sm:flex-col gap-4">
+              This is a special property, If already submitted / confiscated in court please dismantle its records by clicking on the <b>Eliminate</b>button
+              <button
+              className="bg-red-200 hover:bg-red-300 border border-red-500 rounded px-3 py-1"
+              onClick={eliminateSpecialRecords}
+              >Eliminate</button>
+            </div>)}
           </div>
         )}
 
