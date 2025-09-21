@@ -64,6 +64,19 @@ const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: st
   return <Document>{pages}</Document>;
 };
 
+type courtSubmitableItemsType = {
+  property_id: string;
+  special_category_type: string;
+  special_category_worth: number;
+  description: string;
+  case_status: string;
+  updation_date: string;
+  name_of_court: string;
+}[]
+
+type thanaListType = {
+  thana: string;
+}[]
 
 
 export default function Page() {
@@ -118,6 +131,32 @@ export default function Page() {
     pincode: "",
   })
 
+  const [courtSubmitableItems, setCourtSubmitableItems] = useState<courtSubmitableItemsType>([])
+
+  const [specialCategoryThana, setSpecialCategoryThana] = useState("")
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleString());
+  }, []);
+
+  const handleSpecialPropertyDataFetch = async () => {
+
+    const { data, error } = await supabase
+      .from("property_table")
+      .select("property_id, description , case_status, updation_date, name_of_court, special_category_type, special_category_worth")
+      .not("special_category_type", "is", null)
+      .neq("property_id", "")
+      .eq("police_station", specialCategoryThana);
+
+    if (error) {
+      console.error("Error fetching data:", error);
+      return;
+    }
+
+    setCourtSubmitableItems(data);
+  }
+
   const [ispropertyDetailsFetched, setIsPropertyDetailsFetched] = useState(true);
 
   const [newCredentialValueStyle, setNewCredentialValueStyle] = useState("")
@@ -129,6 +168,7 @@ export default function Page() {
   const [isSearchingDetails, setIsSearchingDetails] = useState(false)
 
   const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [thanaList, setThanaList] = useState<thanaListType>([{ thana: user.thana }])
   const handleViewData = async () => {
     setIsSearchingDetails(true)
     if (!user.thana) {
@@ -162,52 +202,98 @@ export default function Page() {
   };
 
 
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res = await axios.get('/api/get-token', { withCredentials: true });
-        const userData = res.data.user;
 
-        if (userData) {
-          const User = {
-            email: userData.email || '',
-            name: userData.name || '',
-            role: userData.role || '',
-            thana: userData.thana || '',
-            created_at: userData.created_at || '',
-            phone: userData.phone || '',
-          };
+// Updated useEffect with proper logic
+useEffect(() => {
+  // Combined auth check and thana fetching
+  async function checkAuth() {
+    try {
+      const res = await axios.get('/api/get-token', { withCredentials: true });
+      const userData = res.data.user;
 
-          setUser(User);
-          setNewUserGeneration((prev) => ({
-            ...prev,
-            newuserThana: User.thana || '',
-          }));
+      if (userData) {
+        const User = {
+          email: userData.email || '',
+          name: userData.name || '',
+          role: userData.role || '',
+          thana: userData.thana || '',
+          created_at: userData.created_at || '',
+          phone: userData.phone || '',
+        };
 
-          // Admin-only: fetch thanas
-          if (User.role === 'admin' || User.role === 'super admin') {
-            try {
-              const thanaRes = await axios.get('/api/fetch-thana-admin');
-              if (thanaRes.data.success) {
-                setAvailableThanas(thanaRes.data.thanas);
-              } else {
-                toast.error(thanaRes.data.message);
-              }
-            } catch (thanaErr) {
-              console.error('Fetch thanas failed:', thanaErr);
-              toast.error("Failed to fetch thanas.");
+        setUser(User);
+        
+        // Set specialCategoryThana after user data is loaded
+        setSpecialCategoryThana(User.thana);
+        
+        // Update newUserGeneration with the correct thana
+        setNewUserGeneration((prev) => ({
+          ...prev,
+          newuserThana: User.thana || '',
+        }));
+
+        // Admin-only: fetch available thanas for dropdowns
+        if (User.role === 'admin' || User.role === 'super admin') {
+          try {
+            const thanaRes = await axios.get('/api/fetch-thana-admin');
+            if (thanaRes.data.success) {
+              setAvailableThanas(thanaRes.data.thanas);
+            } else {
+              toast.error(thanaRes.data.message);
             }
+          } catch (thanaErr) {
+            console.error('Fetch thanas failed:', thanaErr);
+            toast.error("Failed to fetch thanas.");
           }
         }
-      } catch (err) {
-        console.error('Auth check failed:', err);
-        toast.error('Failed to authenticate user.');
+
+        // Now fetch thanas with the loaded user data
+        if (User.thana) {
+          await fetchThanas(User.thana);
+        }
       }
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      toast.error('Failed to authenticate user.');
+    }
+  }
+
+  checkAuth();
+}, []); // Empty dependency array - runs once on mount
+
+// Updated fetchThanas function
+async function fetchThanas(thanaName:string) {
+  try {
+    // If no thanaName provided, don't make the query
+    if (!thanaName) {
+      console.log("No thana name provided to fetchThanas");
+      return;
     }
 
-    checkAuth();
-  }, []);
+    const { data, error } = await supabase
+      .from('thana_rack_box_table')
+      .select('thana')
 
+    if (error) {
+      console.error("Supabase error:", error);
+      toast.error("Unable to find thana details");
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setThanaList(data);
+      console.log("Thanas found:", data);
+    } else {
+      // If no data found, set the user's thana as default
+      setThanaList([{ thana: thanaName }]);
+      console.log("No thanas found in database, using user thana:", thanaName);
+      // Remove the toast message since this might be expected behavior
+    }
+  } catch (err) {
+    console.error("Unexpected error in fetchThanas:", err);
+    toast.error("Something went wrong while fetching thanas");
+  }
+}
 
   const handleRackGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,7 +411,7 @@ export default function Page() {
         newusername,
         newuserEmail,
         newuserRole,
-        newuserPhone:"+91"+newuserPhone,
+        newuserPhone: "+91" + newuserPhone,
         newuserThana,
         updatedBy: user.name,
       });
@@ -429,47 +515,47 @@ export default function Page() {
   };
 
   const handleNewCredentialChange = async () => {
-  setIsCredentialUpdating(true);
+    setIsCredentialUpdating(true);
 
-  if (
-    newCredentialValue.trim() === "" ||
-    newCredentialValueStyle.trim() === "" ||
-    existingCredentialValue.trim() === ""
-  ) {
-    toast.error("Please fill all the fields");
-    setIsCredentialUpdating(false);
-    return;
-  }
-
-  try {
-    // Prepend "+91" to newCredentialValue if the credential type is phone
-    const updatedCredentialValue = newCredentialValueStyle === "phone" ? `+91${newCredentialValue}` : newCredentialValue;
-
-    const response = await axios.post<APIResponse>("/api/update-credential", {
-      existingCredentialValue,
-      newCredentialValue: updatedCredentialValue,
-      newCredentialValueStyle,
-      updatedBy: user.name,
-    });
-
-    const { success, message } = response.data;
-
-    if (success) {
-      toast.success(message);
-    } else {
-      toast.error(message);
+    if (
+      newCredentialValue.trim() === "" ||
+      newCredentialValueStyle.trim() === "" ||
+      existingCredentialValue.trim() === ""
+    ) {
+      toast.error("Please fill all the fields");
+      setIsCredentialUpdating(false);
+      return;
     }
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      const data = error.response?.data as APIResponse;
-      toast.error(data?.message || "Server error occurred");
-    } else {
-      toast.error("Unexpected error occurred");
+
+    try {
+      // Prepend "+91" to newCredentialValue if the credential type is phone
+      const updatedCredentialValue = newCredentialValueStyle === "phone" ? `+91${newCredentialValue}` : newCredentialValue;
+
+      const response = await axios.post<APIResponse>("/api/update-credential", {
+        existingCredentialValue,
+        newCredentialValue: updatedCredentialValue,
+        newCredentialValueStyle,
+        updatedBy: user.name,
+      });
+
+      const { success, message } = response.data;
+
+      if (success) {
+        toast.success(message);
+      } else {
+        toast.error(message);
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as APIResponse;
+        toast.error(data?.message || "Server error occurred");
+      } else {
+        toast.error("Unexpected error occurred");
+      }
+    } finally {
+      setIsCredentialUpdating(false);
     }
-  } finally {
-    setIsCredentialUpdating(false);
-  }
-};
+  };
 
   const clearPropertyRecords = async () => {
     // Input validation
@@ -603,7 +689,7 @@ export default function Page() {
           serial_number_from_register: null,
           type_of_seizure: null,
           under_section: null,
-          io_batch_number:null
+          io_batch_number: null
         })
         .eq("property_id", propertyId);
 
@@ -716,6 +802,8 @@ export default function Page() {
           </p>
         )}
 
+        {/* full thana data */}
+
         <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
           <table className="min-w-[1200px] border text-sm text-left text-gray-700">
             <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
@@ -777,13 +865,87 @@ export default function Page() {
         </div>
       </div>
 
-      <style jsx>{`
+
+<div className="mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
+  <div className='flex py-4 gap-4 flex-wrap items-center justify-center'>
+    <p className='font-semibold text-lg max-sm:text-base text-center'>
+      Thana property worth
+    </p>
+
+    <button
+      className=' text-white px-4 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer max-sm:scale-95'
+      onClick={handleSpecialPropertyDataFetch}
+    >
+      View Details
+    </button>
+
+    {
+      user.role == "super admin" && (
+        <select
+          onChange={(e) => { setSpecialCategoryThana(e.target.value) }}
+          className='px-3 rounded-md border border-emerald-600 text-emerald-600 max-sm:scale-95'
+          defaultValue={user.thana}
+        >
+          <option value={user.thana}>{user.thana}</option>
+          {thanaList.map((item, index) => {
+            return <div key={index}>
+              <option value={item.thana}>{item.thana}</option>
+            </div>
+          })}
+        </select>
+      )
+    }
+  </div>
+
+  {/* Mobile-responsive table wrapper */}
+  <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+    <table border={1} className='min-w-[800px] w-full border-2 text-sm text-left text-gray-700'>
+      <tbody>
+        <tr className='border-2'>
+          <th colSpan={6} className='text-center px-4 py-2 whitespace-nowrap bg-gray-200 border-2'>
+            As dated of : {currentDate}
+          </th>
+        </tr>
+
+        <tr>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Property ID:</th>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Description:</th>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Case Status:</th>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Updated:</th>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Category Type:</th>
+          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Appx Worth:</th>
+        </tr>
+        
+        {courtSubmitableItems.map((item, index) => {
+          return <tr key={index} className='border-2'>
+            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.property_id}</td>
+            <td className='px-2 py-2 text-xs sm:text-sm'>{item.description}</td>
+            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.case_status}</td>
+            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.updation_date}</td>
+            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_type}</td>
+            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_worth}</td>
+          </tr>
+        })}
+
+        <tr className='border-2 py-2'>
+          <td colSpan={5} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>Total Appx Worth</td>
+          <td className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>
+            {courtSubmitableItems.reduce((sum, item) => sum + item.special_category_worth, 0)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<style jsx>{`
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af #f3f4f6;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    height: 8px;
+    height: 6px; /* Reduced height for mobile */
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: #f3f4f6;
@@ -796,6 +958,14 @@ export default function Page() {
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
   }
+  
+  /* Better mobile table handling */
+  @media (max-width: 640px) {
+    .scrollbar-thin {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+  
   table {
     -webkit-overflow-scrolling: touch;
   }
