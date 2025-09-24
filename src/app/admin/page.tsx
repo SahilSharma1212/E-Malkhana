@@ -147,7 +147,8 @@ export default function Page() {
       .select("property_id, description , case_status, updation_date, name_of_court, special_category_type, special_category_worth")
       .not("special_category_type", "is", null)
       .neq("property_id", "")
-      .eq("police_station", specialCategoryThana);
+      .eq("police_station", specialCategoryThana)
+       .eq("isDismantled", false);
 
     if (error) {
       console.error("Error fetching data:", error);
@@ -169,6 +170,8 @@ export default function Page() {
 
   const [hasLoadedData, setHasLoadedData] = useState(false);
   const [thanaList, setThanaList] = useState<thanaListType>([{ thana: user.thana }])
+
+
   const handleViewData = async () => {
     setIsSearchingDetails(true)
     if (!user.thana) {

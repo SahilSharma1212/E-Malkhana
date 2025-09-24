@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
       .from("property_table")
       .select("*")
       .not("property_id", "is", null)
-      .neq("property_id", "");
+      .neq("property_id", "")
+      .eq("isDismantled", false);
 
     if (role === "viewer" || role === "thana admin") {
       query = query.eq("police_station", thana);

@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
       .from("property_table")
       .select("*")
       .not("property_id", "is", null)
-      .neq("property_id", "");
+      .neq("property_id", "")
+      .eq("isDismantled", false);
 
     if (searchCategory === "offence") {
       if (searchValue === "other") {

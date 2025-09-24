@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
       .from('property_table')
       .select('property_id, name_of_io, created_at, date_of_seizure, category_of_offence, type_of_seizure, fir_number, place_of_seizure, rack_number, box_number, serial_number_from_register')
       .eq('police_station', thana)
-      .neq('property_id', '');
+      .neq('property_id', '')
+      .eq("isDismantled", false);
 
     if (error) {
       return NextResponse.json({ success: false, message: "Failed to fetch property data" }, { status: 500 });
