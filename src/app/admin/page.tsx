@@ -203,97 +203,97 @@ export default function Page() {
 
 
 
-// Updated useEffect with proper logic
-useEffect(() => {
-  // Combined auth check and thana fetching
-  async function checkAuth() {
-    try {
-      const res = await axios.get('/api/get-token', { withCredentials: true });
-      const userData = res.data.user;
+  // Updated useEffect with proper logic
+  useEffect(() => {
+    // Combined auth check and thana fetching
+    async function checkAuth() {
+      try {
+        const res = await axios.get('/api/get-token', { withCredentials: true });
+        const userData = res.data.user;
 
-      if (userData) {
-        const User = {
-          email: userData.email || '',
-          name: userData.name || '',
-          role: userData.role || '',
-          thana: userData.thana || '',
-          created_at: userData.created_at || '',
-          phone: userData.phone || '',
-        };
+        if (userData) {
+          const User = {
+            email: userData.email || '',
+            name: userData.name || '',
+            role: userData.role || '',
+            thana: userData.thana || '',
+            created_at: userData.created_at || '',
+            phone: userData.phone || '',
+          };
 
-        setUser(User);
-        
-        // Set specialCategoryThana after user data is loaded
-        setSpecialCategoryThana(User.thana);
-        
-        // Update newUserGeneration with the correct thana
-        setNewUserGeneration((prev) => ({
-          ...prev,
-          newuserThana: User.thana || '',
-        }));
+          setUser(User);
 
-        // Admin-only: fetch available thanas for dropdowns
-        if (User.role === 'admin' || User.role === 'super admin') {
-          try {
-            const thanaRes = await axios.get('/api/fetch-thana-admin');
-            if (thanaRes.data.success) {
-              setAvailableThanas(thanaRes.data.thanas);
-            } else {
-              toast.error(thanaRes.data.message);
+          // Set specialCategoryThana after user data is loaded
+          setSpecialCategoryThana(User.thana);
+
+          // Update newUserGeneration with the correct thana
+          setNewUserGeneration((prev) => ({
+            ...prev,
+            newuserThana: User.thana || '',
+          }));
+
+          // Admin-only: fetch available thanas for dropdowns
+          if (User.role === 'admin' || User.role === 'super admin') {
+            try {
+              const thanaRes = await axios.get('/api/fetch-thana-admin');
+              if (thanaRes.data.success) {
+                setAvailableThanas(thanaRes.data.thanas);
+              } else {
+                toast.error(thanaRes.data.message);
+              }
+            } catch (thanaErr) {
+              console.error('Fetch thanas failed:', thanaErr);
+              toast.error("Failed to fetch thanas.");
             }
-          } catch (thanaErr) {
-            console.error('Fetch thanas failed:', thanaErr);
-            toast.error("Failed to fetch thanas.");
+          }
+
+          // Now fetch thanas with the loaded user data
+          if (User.thana) {
+            await fetchThanas(User.thana);
           }
         }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        toast.error('Failed to authenticate user.');
+      }
+    }
 
-        // Now fetch thanas with the loaded user data
-        if (User.thana) {
-          await fetchThanas(User.thana);
-        }
+    checkAuth();
+  }, []); // Empty dependency array - runs once on mount
+
+  // Updated fetchThanas function
+  async function fetchThanas(thanaName: string) {
+    try {
+      // If no thanaName provided, don't make the query
+      if (!thanaName) {
+        console.log("No thana name provided to fetchThanas");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('thana_rack_box_table')
+        .select('thana')
+
+      if (error) {
+        console.error("Supabase error:", error);
+        toast.error("Unable to find thana details");
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setThanaList(data);
+        console.log("Thanas found:", data);
+      } else {
+        // If no data found, set the user's thana as default
+        setThanaList([{ thana: thanaName }]);
+        console.log("No thanas found in database, using user thana:", thanaName);
+        // Remove the toast message since this might be expected behavior
       }
     } catch (err) {
-      console.error('Auth check failed:', err);
-      toast.error('Failed to authenticate user.');
+      console.error("Unexpected error in fetchThanas:", err);
+      toast.error("Something went wrong while fetching thanas");
     }
   }
-
-  checkAuth();
-}, []); // Empty dependency array - runs once on mount
-
-// Updated fetchThanas function
-async function fetchThanas(thanaName:string) {
-  try {
-    // If no thanaName provided, don't make the query
-    if (!thanaName) {
-      console.log("No thana name provided to fetchThanas");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('thana_rack_box_table')
-      .select('thana')
-
-    if (error) {
-      console.error("Supabase error:", error);
-      toast.error("Unable to find thana details");
-      return;
-    }
-
-    if (data && data.length > 0) {
-      setThanaList(data);
-      console.log("Thanas found:", data);
-    } else {
-      // If no data found, set the user's thana as default
-      setThanaList([{ thana: thanaName }]);
-      console.log("No thanas found in database, using user thana:", thanaName);
-      // Remove the toast message since this might be expected behavior
-    }
-  } catch (err) {
-    console.error("Unexpected error in fetchThanas:", err);
-    toast.error("Something went wrong while fetching thanas");
-  }
-}
 
   const handleRackGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -866,80 +866,86 @@ async function fetchThanas(thanaName:string) {
       </div>
 
 
-<div className="mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
-  <div className='flex py-4 gap-4 flex-wrap items-center justify-center'>
-    <p className='font-semibold text-lg max-sm:text-base text-center'>
-      Thana property worth
-    </p>
+      <div className="mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
+        <div className='flex py-4 gap-4 flex-wrap items-center justify-center'>
+          <p className='font-semibold text-lg max-sm:text-base text-center'>
+            Thana property worth
+          </p>
 
-    <button
-      className=' text-white px-4 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer max-sm:scale-95'
-      onClick={handleSpecialPropertyDataFetch}
-    >
-      View Details
-    </button>
+          <button
+            className=' text-white px-4 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer max-sm:scale-95'
+            onClick={handleSpecialPropertyDataFetch}
+          >
+            View Details
+          </button>
 
-    {
-      user.role == "super admin" && (
-        <select
-          onChange={(e) => { setSpecialCategoryThana(e.target.value) }}
-          className='px-3 rounded-md border border-emerald-600 text-emerald-600 max-sm:scale-95'
-          defaultValue={user.thana}
-        >
-          <option value={user.thana}>{user.thana}</option>
-          {thanaList.map((item, index) => {
-            return <div key={index}>
-              <option value={item.thana}>{item.thana}</option>
-            </div>
-          })}
-        </select>
-      )
-    }
-  </div>
+          {
+            user.role == "super admin" && (
+              <select
+                onChange={(e) => { setSpecialCategoryThana(e.target.value) }}
+                className='px-3 rounded-md border border-emerald-600 text-emerald-600 max-sm:scale-95'
+                defaultValue={user.thana}
+              >
+                <option value={user.thana}>{user.thana}</option>
+                {thanaList.map((item, index) => {
+                  return <div key={index}>
+                    <option value={item.thana}>{item.thana}</option>
+                  </div>
+                })}
+              </select>
+            )
+          }
+        </div>
 
-  {/* Mobile-responsive table wrapper */}
-  <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-    <table border={1} className='min-w-[800px] w-full border-2 text-sm text-left text-gray-700'>
-      <tbody>
-        <tr className='border-2'>
-          <th colSpan={6} className='text-center px-4 py-2 whitespace-nowrap bg-gray-200 border-2'>
-            As dated of : {currentDate}
-          </th>
-        </tr>
+        {/* Mobile-responsive table wrapper */}
+        <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+          <table border={1} className='min-w-[800px] w-full border-2 text-sm text-left text-gray-700'>
+            <tbody>
+              <tr className='border-2'>
+                <th colSpan={7} className='text-center px-4 py-2 whitespace-nowrap bg-gray-200 border-2'>
+                  As dated of : {currentDate}
+                </th>
+              </tr>
 
-        <tr>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Property ID:</th>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Description:</th>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Case Status:</th>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Updated:</th>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Category Type:</th>
-          <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Appx Worth:</th>
-        </tr>
-        
-        {courtSubmitableItems.map((item, index) => {
-          return <tr key={index} className='border-2'>
-            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.property_id}</td>
-            <td className='px-2 py-2 text-xs sm:text-sm'>{item.description}</td>
-            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.case_status}</td>
-            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.updation_date}</td>
-            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_type}</td>
-            <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_worth}</td>
-          </tr>
-        })}
+              <tr>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Property ID:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Description:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Case Status:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Updated:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Category Type:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Appx Worth:</th>
+                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Logs:</th>
+              </tr>
 
-        <tr className='border-2 py-2'>
-          <td colSpan={5} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>Total Appx Worth</td>
-          <td className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>
-            {courtSubmitableItems.reduce((sum, item) => sum + item.special_category_worth, 0)}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+              {courtSubmitableItems.map((item, index) => {
+                return <tr key={index} className='border-2'>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.property_id}</td>
+                  <td className='px-2 py-2 text-xs sm:text-sm'>{item.description}</td>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.case_status}</td>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.updation_date}</td>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_type}</td>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_worth}</td>
+                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>
+                    <a href={`/search-property/${item.property_id}`}>
+                    <Logs size={30} className='text-blue-800 border border-blue-500 rounded-sm p-1 hover:bg-blue-100 cursor-pointer' />
+                    </a>
+                  </td>
+                </tr>
+              })}
+
+              <tr className='border-2 py-2'>
+                <td colSpan={5} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>Total Appx Worth</td>
+                <td colSpan={2} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>
+                  {courtSubmitableItems.reduce((sum, item) => sum + item.special_category_worth, 0)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
 
-<style jsx>{`
+      <style jsx>{`
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af #f3f4f6;

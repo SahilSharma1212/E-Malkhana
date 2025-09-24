@@ -46,6 +46,7 @@ interface PropertyDetails {
   property_id: string;
   special_category_type?: string;
   special_category_worth?: number;
+  isDismantled:boolean;
 }
 
 interface PageProps {
@@ -80,9 +81,6 @@ export default function Page({ params }: PageProps) {
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const eliminateSpecialRecords = () =>{
-    toast.success("Feature not implemented yet")
-  }
 
 
   const handleImageUpload = async (files: File[]) => {
@@ -262,7 +260,7 @@ export default function Page({ params }: PageProps) {
           return;
         }
 
-        setStatusLogs(logs || []);
+        setStatusLogs(logs ?? []);
       } catch (error) {
         console.error("Unexpected error:", error);
         toast.error("An unexpected error occurred");
@@ -406,6 +404,70 @@ export default function Page({ params }: PageProps) {
     }
     return false;
   };
+
+  const dismantleItem = async () => {
+
+    const { data, error } = await supabase
+      .from("property_table")
+      .update({ isDismantled: true })
+      .eq("property_id", propertyDetails?.property_id);
+
+    if (error) {
+      toast.error("Unable to dismantle");
+      return;
+    }
+
+    toast.success("Dismantle Successful");
+
+    // get the first log
+    const { data: firstLog, error: firstLogError } = await supabase
+      .from("status_logs_table")
+      .select("id")
+      .eq("property_id", propertyDetails?.property_id)
+      .order("created_at", { ascending: true }) // order column
+      .limit(1)
+      .single();
+
+    if (firstLogError) {
+      toast.error("Unable to fetch first log");
+      return;
+    }
+
+    //  deleting all logs except first log
+    const { error: deleteError } = await supabase
+      .from("status_logs_table")
+      .delete()
+      .eq("property_id", propertyDetails?.property_id)
+      .neq("id", firstLog.id);
+
+    if (deleteError) {
+      toast.error("Unable to delete logs");
+      return;
+    }
+
+    // inserting final log
+    const { data: newLog, error: insertError } = await supabase
+      .from("status_logs_table")
+      .insert([
+        {
+          property_id: propertyDetails?.property_id,
+          status: "DISMANTLED",  // <-- your custom log message/status
+          status_remarks: "DISMANTLED",
+          created_at: new Date().toISOString() // if you handle timestamps manually
+        }
+      ])
+      .select()
+      .single();
+
+    if (insertError) {
+      toast.error("Unable to create new log");
+    } else {
+      toast.success("New log created successfully");
+    }
+
+
+
+  }
 
   return (
     <div className="bg-blue-100 p-2 min-h-screen">
@@ -658,44 +720,53 @@ export default function Page({ params }: PageProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {statusLogs.map((log, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="border px-4 py-2">{log.status_remarks ? log.status_remarks : "N/A"}</td>
-                        <td className="border px-4 py-2">{log.handling_officer ? log.handling_officer : "N/A"}</td>
-                        <td className="border px-4 py-2">{log.updated_by ? log.updated_by : "N/A"}</td>
-                        <td className="border px-4 py-2">
-                          {new Date(log.time_of_event).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                          })}
-                        </td>
-                        <td className="border px-4 py-2">
-                          {new Date(log.created_at).toLocaleString('en-IN', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="border px-4 py-2">{log.status}</td>
-                        <td className="border px-4 py-2">{log.reason}</td>
-                        <td className="border px-4 py-2 flex justify-center" title={log.pdf_url.length > 0 ? "View PDFs" : "No PDFs Uploaded"}>
-                          {log.pdf_url.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {log.pdf_url.map((url, idx) => (
-                                <Link key={idx} href={url} target="_blank" aria-label={`View PDF ${idx + 1}`}>
-                                  <FileText className="text-blue-600" strokeWidth={2} />
-                                </Link>
-                              ))}
-                            </div>
-                          ) : (
-                            <FolderUp className="text-gray-500" aria-label="No PDF" />
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    <tbody>
+                      {statusLogs && Array.isArray(statusLogs) && statusLogs.length > 0 ?
+                        statusLogs.map((log, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="border px-4 py-2">{log.status_remarks ?? "N/A"}</td>
+                            <td className="border px-4 py-2">{log.handling_officer ?? "N/A"}</td>
+                            <td className="border px-4 py-2">{log.updated_by ?? "N/A"}</td>
+                            <td className="border px-4 py-2">
+                              {new Date(log.time_of_event).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })}
+                            </td>
+                            <td className="border px-4 py-2">
+                              {new Date(log.created_at).toLocaleString('en-IN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </td>
+                            <td className="border px-4 py-2">{log.status}</td>
+                            <td className="border px-4 py-2">{log.reason}</td>
+                            <td className="border px-4 py-2 flex justify-center" title={log.pdf_url?.length > 0 ? "View PDFs" : "No PDFs Uploaded"}>
+                              {log.pdf_url && log.pdf_url.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {log.pdf_url.map((url, idx) => (
+                                    <Link key={idx} href={url} target="_blank" aria-label={`View PDF ${idx + 1}`}>
+                                      <FileText className="text-blue-600" strokeWidth={2} />
+                                    </Link>
+                                  ))}
+                                </div>
+                              ) : (
+                                <FolderUp className="text-gray-500" aria-label="No PDF" />
+                              )}
+                            </td>
+                          </tr>
+                        )) :
+                        <tr>
+                          <td colSpan={8} className="border px-4 py-2 text-center text-gray-500">
+                            No Logs Available
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
                   </tbody>
                 </table>
               </div>
@@ -712,8 +783,20 @@ export default function Page({ params }: PageProps) {
             </div>
           </div>
         )}
+
+
+        {/* special property dismantling div */}
+        {(propertyDetails?.special_category_type != '' && propertyDetails?.special_category_type != null && propertyDetails?.special_category_type != undefined && propertyDetails.isDismantled == false) &&
+          (<div className="text-red-900 mt-4 flex items-center max-sm:flex-col gap-4">
+            <p className="max-sm:text-xs text-center">This is a special property, If already submitted / confiscated in court please dismantle its records by clicking on the <span className="inline font-semibold">Eliminate</span> button</p>
+            <button
+              className="bg-red-200 hover:bg-red-300 border border-red-500 rounded px-3 py-1"
+              onClick={dismantleItem}
+            >Eliminate</button>
+          </div>)}
+
         {/* Adding Logs */}
-        {!loading && hasAccess && canAddLogs() && (
+        {!loading && hasAccess && propertyDetails?.isDismantled == false && canAddLogs() && (
           <div className="p-4 bg-white rounded-md mt-3 flex items-start justify-center flex-col">
             <button
               className={`inline-flex items-center justify-center gap-2 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "bg-red-500 hover:bg-red-700" : "bg-blue-500 hover:bg-blue-700"}`}
@@ -900,15 +983,13 @@ export default function Page({ params }: PageProps) {
                 </div>
               </form>
             )}
-            {/* special property dismantling div */}
-            {(propertyDetails?.special_category_type != '' && propertyDetails?.special_category_type != null && propertyDetails?.special_category_type != undefined) && 
-            (<div className="text-red-900 mt-4 flex items-center max-sm:flex-col gap-4">
-              This is a special property, If already submitted / confiscated in court please dismantle its records by clicking on the <b>Eliminate</b>button
-              <button
-              className="bg-red-200 hover:bg-red-300 border border-red-500 rounded px-3 py-1"
-              onClick={eliminateSpecialRecords}
-              >Eliminate</button>
-            </div>)}
+
+          </div>
+        )}
+
+        {propertyDetails?.isDismantled==true && (
+          <div className="text-center text-red-700 text-sm">
+            This has been dismantled / submitted to court
           </div>
         )}
 
