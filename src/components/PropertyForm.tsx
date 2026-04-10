@@ -288,204 +288,203 @@ export default function PropertyForm() {
     setPreviewUrls(newPreviews);
   };
 
-const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
-  // Prevent default form submission if event exists
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
+  const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default form submission if event exists
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
-  console.log("Submit button clicked - Form Data Section:", formData.section);
-  console.log("Complete form data:", formData);
+    console.log("Submit button clicked - Form Data Section:", formData.section);
+    console.log("Complete form data:", formData);
 
-  if (user.name === "") {
-    toast.error("Not logged in");
-    return;
-  }
-
-  if (placeOfSeizure === "Other" && !customplaceOfSeizure.trim()) {
-    toast.error("Please enter a custom Place of Seizure.");
-    return;
-  }
-  if (typeOfSeizure === "Other" && !customTypeOfSeizure.trim()) {
-    toast.error("Please enter a custom Type of Seizure.");
-    return;
-  }
-  if (offenceCategory === "Other" && !customOffenceCategory.trim()) {
-    toast.error("Please enter a custom Offence Category.");
-    return;
-  }
-
-  // Special category validation
-  if (isSpecialProperty) {
-    if (!specialCategoryDetails.specialCategoryType.trim()) {
-      toast.error("Please select a Special Category Type.");
+    if (user.name === "") {
+      toast.error("Not logged in");
       return;
     }
-    if (specialCategoryDetails.itemWorth <= 0) {
-      toast.error("Please enter a valid worth amount for the special category item.");
+
+    if (placeOfSeizure === "Other" && !customplaceOfSeizure.trim()) {
+      toast.error("Please enter a custom Place of Seizure.");
       return;
     }
-  }
-
-  if (isSpecialPlace) {
-    if (!specialPlace.trim()) {
-      toast.error("Please enter the Special Place");
+    if (typeOfSeizure === "Other" && !customTypeOfSeizure.trim()) {
+      toast.error("Please enter a custom Type of Seizure.");
       return;
     }
-  } else {
-    if (!formData.rackNumber.trim() || !formData.boxNumber.trim()) {
-      toast.error("Please enter Rack and Box numbers");
+    if (offenceCategory === "Other" && !customOffenceCategory.trim()) {
+      toast.error("Please enter a custom Offence Category.");
       return;
     }
-  }
 
-  const finalPlaceOfSeizure = placeOfSeizure === "Other"
-    ? `other - ${customplaceOfSeizure}`
-    : placeOfSeizure;
-
-  const finalTypeOfSeizure = typeOfSeizure === "Other"
-    ? `other - ${customTypeOfSeizure}`
-    : typeOfSeizure;
-
-  const finalOffenceCategory = offenceCategory === "Other"
-    ? `other - ${customOffenceCategory}`
-    : offenceCategory;
-
-  if (!qrId) {
-    toast.error("Invalid QR ID in URL.");
-    return;
-  }
-
-  // Enhanced field validation with specific field names and Hindi support
-  const fieldValidation = [
-    { value: formData.courtName, name: "Name of Court" },
-    { value: formData.firNumber, name: "FIR Number" },
-    {
-      value: offenceCategory === "Other" ? customOffenceCategory : offenceCategory,
-      name: "Category of Offence"
-    },
-    { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
-    { value: formData.seizureDate, name: "Date of Seizure" },
-    { value: formData.description1, name: "Description" },
-    { value: formData.ioName, name: "Name of IO" },
-    { value: formData.caseStatus, name: "Case Status" },
-    { value: formData.remarks, name: "Remarks" },
-    { value: formData.policeStation, name: "Police Station" },
-    {
-      value: placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure,
-      name: "Place Of Seizure"
-    },
-    { value: formData.registerSerialNumber, name: "Serial Number from Register" },
-    {
-      value: typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure,
-      name: "Type of Seizure"
-    },
-    { value: user.name, name: "User Authentication" },
-  ];
-
-  // Find missing fields with better Unicode handling
-  const missingFields = fieldValidation.filter(field => {
-    if (!field.value) return true;
-    const normalizedValue = field.value.toString().normalize('NFC').trim();
-    return normalizedValue === '';
-  });
-
-  // Check for missing files - only images are required, PDFs are optional
-  const imageFiles = selectedFiles.filter(f => f.type === 'image');
-  const missingFiles = imageFiles.length === 0;
-
-  // Show specific error messages
-  if (missingFields.length > 0 || missingFiles) {
-    let errorMessage = "";
-
-    if (missingFields.length === 1) {
-      errorMessage = `Please fill the "${missingFields[0].name}" field`;
-    } else if (missingFields.length > 1) {
-      errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
-    }
-
-    if (missingFiles) {
-      if (errorMessage) {
-        errorMessage += " and select at least one image";
-      } else {
-        errorMessage = "Please select at least one image";
+    // Special category validation
+    if (isSpecialProperty) {
+      if (!specialCategoryDetails.specialCategoryType.trim()) {
+        toast.error("Please select a Special Category Type.");
+        return;
+      }
+      if (specialCategoryDetails.itemWorth <= 0) {
+        toast.error("Please enter a valid worth amount for the special category item.");
+        return;
       }
     }
 
-    errorMessage += " before submitting.";
-    toast.error(errorMessage);
-    return;
-  }
-
-  setUploading(true);
-
-  try {
-    // Upload files
-    const uploadPromises = selectedFiles.map(async ({ file, type }) => {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const bucket = type === 'image' ? 'property-images/image_proof' : 'property-images/pdf_reports';
-      const filePath = `${bucket}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw new Error(`File upload failed: ${uploadError.message}`);
+    if (isSpecialPlace) {
+      if (!specialPlace.trim()) {
+        toast.error("Please enter the Special Place");
+        return;
       }
+    } else {
+      if (!formData.rackNumber.trim() || !formData.boxNumber.trim()) {
+        toast.error("Please enter Rack and Box numbers");
+        return;
+      }
+    }
 
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
+    const finalPlaceOfSeizure = placeOfSeizure === "Other"
+      ? `other - ${customplaceOfSeizure}`
+      : placeOfSeizure;
 
-      return { url: urlData.publicUrl, type };
+    const finalTypeOfSeizure = typeOfSeizure === "Other"
+      ? `other - ${customTypeOfSeizure}`
+      : typeOfSeizure;
+
+    const finalOffenceCategory = offenceCategory === "Other"
+      ? `other - ${customOffenceCategory}`
+      : offenceCategory;
+
+    if (!qrId) {
+      toast.error("Invalid QR ID in URL.");
+      return;
+    }
+
+    // Enhanced field validation with specific field names and Hindi support
+    const fieldValidation = [
+      { value: formData.courtName, name: "Name of Court" },
+      { value: formData.firNumber, name: "FIR Number" },
+      {
+        value: offenceCategory === "Other" ? customOffenceCategory : offenceCategory,
+        name: "Category of Offence"
+      },
+      { value: formData.section.length === 0 ? "" : "valid", name: "Under Section" },
+      { value: formData.seizureDate, name: "Date of Seizure" },
+      { value: formData.description1, name: "Description" },
+      { value: formData.ioName, name: "Name of IO" },
+      { value: formData.caseStatus, name: "Case Status" },
+      { value: formData.remarks, name: "Remarks" },
+      { value: formData.policeStation, name: "Police Station" },
+      {
+        value: placeOfSeizure === "Other" ? customplaceOfSeizure : placeOfSeizure,
+        name: "Place Of Seizure"
+      },
+      { value: formData.registerSerialNumber, name: "Serial Number from Register" },
+      {
+        value: typeOfSeizure === "Other" ? customTypeOfSeizure : typeOfSeizure,
+        name: "Type of Seizure"
+      },
+      { value: user.name, name: "User Authentication" },
+    ];
+
+    // Find missing fields with better Unicode handling
+    const missingFields = fieldValidation.filter(field => {
+      if (!field.value) return true;
+      const normalizedValue = field.value.toString().normalize('NFC').trim();
+      return normalizedValue === '';
     });
 
-    const uploadedFiles = await Promise.all(uploadPromises);
-    const imageUrls = uploadedFiles.filter(f => f.type === 'image').map(f => f.url);
-    const pdfUrls = uploadedFiles.filter(f => f.type !== 'image').map(f => f.url);
+    // Check for missing files - only images are required, PDFs are optional
+    const imageFiles = selectedFiles.filter(f => f.type === 'image');
+    const missingFiles = imageFiles.length === 0;
 
-    const newPropertyId = uuidv4();
-    PropId = newPropertyId;
-    setUuid(formData.firNumber);
-    setRoutingUUID(newPropertyId);
+    // Show specific error messages
+    if (missingFields.length > 0 || missingFiles) {
+      let errorMessage = "";
 
-    // Normalize all text data before saving to ensure proper Unicode encoding
-    const normalizeText = (text: string) => text.normalize('NFC').trim();
+      if (missingFields.length === 1) {
+        errorMessage = `Please fill the "${missingFields[0].name}" field`;
+      } else if (missingFields.length > 1) {
+        errorMessage = `Please fill the "${missingFields[0].name}" field (and ${missingFields.length - 1} other field${missingFields.length - 1 > 1 ? 's' : ''})`;
+      }
 
-    // Prepare the update data object
-    const updateData:dataBeforeUpdate = {
-      property_id: newPropertyId.toLowerCase(),
-      name_of_court: normalizeText(formData.courtName.toLowerCase()),
-      fir_number: normalizeText(formData.firNumber.toLowerCase()),
-      category_of_offence: normalizeText(finalOffenceCategory.toLowerCase()),
-      under_section: formData.section.map((item) => normalizeText(item.toLowerCase())),
-      date_of_seizure: formData.seizureDate.toLowerCase(),
-      description: normalizeText(formData.description1.toLowerCase()),
-      name_of_io: normalizeText(formData.ioName.toLowerCase()),
-      case_status: normalizeText(formData.caseStatus.toLowerCase()),
-      rack_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.rackNumber.toLowerCase(),
-      box_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.boxNumber.toLowerCase(),
-      remarks: normalizeText(formData.remarks.toLowerCase()),
-      police_station: normalizeText(formData.policeStation.toLowerCase()),
-      image_url: imageUrls,
-      pdf_urls: pdfUrls,
-      place_of_seizure: normalizeText(finalPlaceOfSeizure.toLowerCase()),
-      serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
-      type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
-      updated_by: normalizeText(user.name.toLowerCase()),
-      io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : "",
-      property_actually_added_at: new Date().toISOString(),
-      updation_date: new Date().toISOString(),
-    };
+      if (missingFiles) {
+        if (errorMessage) {
+          errorMessage += " and select at least one image";
+        } else {
+          errorMessage = "Please select at least one image";
+        }
+      }
 
-    // Add special category fields if applicable
-    if (isSpecialProperty) {
-      updateData.special_category_type = normalizeText(specialCategoryDetails.specialCategoryType.toLowerCase());
-      updateData.special_category_worth = specialCategoryDetails.itemWorth;
+      errorMessage += " before submitting.";
+      toast.error(errorMessage);
+      return;
     }
+
+    setUploading(true);
+
+    try {
+      // Upload files
+      const uploadPromises = selectedFiles.map(async ({ file, type }) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const bucket = type === 'image' ? 'property-images/image_proof' : 'property-images/pdf_reports';
+        const filePath = `${bucket}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(`File upload failed: ${uploadError.message}`);
+        }
+
+        const { data: urlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+
+        return { url: urlData.publicUrl, type };
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      const imageUrls = uploadedFiles.filter((f: any) => f.type === 'image').map((f: any) => f.url);
+      const pdfUrls = uploadedFiles.filter((f: any) => f.type !== 'image').map((f: any) => f.url);
+
+      const newPropertyId = uuidv4();
+      setUuid(formData.firNumber);
+      setRoutingUUID(newPropertyId);
+
+      // Normalize all text data before saving to ensure proper Unicode encoding
+      const normalizeText = (text: string) => text.normalize('NFC').trim();
+
+      // Prepare the update data object
+      const updateData: dataBeforeUpdate = {
+        property_id: newPropertyId.toLowerCase(),
+        name_of_court: normalizeText(formData.courtName.toLowerCase()),
+        fir_number: normalizeText(formData.firNumber.toLowerCase()),
+        category_of_offence: normalizeText(finalOffenceCategory.toLowerCase()),
+        under_section: formData.section.map((item) => normalizeText(item.toLowerCase())),
+        date_of_seizure: formData.seizureDate.toLowerCase(),
+        description: normalizeText(formData.description1.toLowerCase()),
+        name_of_io: normalizeText(formData.ioName.toLowerCase()),
+        case_status: normalizeText(formData.caseStatus.toLowerCase()),
+        rack_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.rackNumber.toLowerCase(),
+        box_number: isSpecialPlace ? "Special Place - " + normalizeText(specialPlace) : formData.boxNumber.toLowerCase(),
+        remarks: normalizeText(formData.remarks.toLowerCase()),
+        police_station: normalizeText(formData.policeStation.toLowerCase()),
+        image_url: imageUrls,
+        pdf_urls: pdfUrls,
+        place_of_seizure: normalizeText(finalPlaceOfSeizure.toLowerCase()),
+        serial_number_from_register: normalizeText(formData.registerSerialNumber.toLowerCase()),
+        type_of_seizure: normalizeText(finalTypeOfSeizure.toLowerCase()),
+        updated_by: normalizeText(user.name.toLowerCase()),
+        io_batch_number: formData.batchNumber ? normalizeText(formData.batchNumber.toLowerCase()) : "",
+        property_actually_added_at: new Date().toISOString(),
+        updation_date: new Date().toISOString(),
+      };
+
+      // Add special category fields if applicable
+      if (isSpecialProperty) {
+        updateData.special_category_type = normalizeText(specialCategoryDetails.specialCategoryType.toLowerCase());
+        updateData.special_category_worth = specialCategoryDetails.itemWorth;
+      }
 
 
 
