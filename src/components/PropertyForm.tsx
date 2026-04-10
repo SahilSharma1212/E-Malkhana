@@ -444,8 +444,8 @@ export default function PropertyForm() {
       });
 
       const uploadedFiles = await Promise.all(uploadPromises);
-      const imageUrls = uploadedFiles.filter((f: any) => f.type === 'image').map((f: any) => f.url);
-      const pdfUrls = uploadedFiles.filter((f: any) => f.type !== 'image').map((f: any) => f.url);
+      const imageUrls = uploadedFiles.filter((f: { url: string; type: string }) => f.type === 'image').map((f: { url: string; type: string }) => f.url);
+      const pdfUrls = uploadedFiles.filter((f: { url: string; type: string }) => f.type !== 'image').map((f: { url: string; type: string }) => f.url);
 
       const newPropertyId = uuidv4();
       setUuid(formData.firNumber);
