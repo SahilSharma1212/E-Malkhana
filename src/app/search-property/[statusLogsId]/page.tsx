@@ -1,5 +1,4 @@
 "use client";
-import Loading from "@/app/loading";
 import supabase from "@/config/supabaseConnect";
 import axios from "axios";
 import { Copy, FileText, FolderUp, Loader2, Plus, Upload, X } from "lucide-react";
@@ -407,7 +406,7 @@ export default function Page({ params }: PageProps) {
 
   const dismantleItem = async () => {
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("property_table")
       .update({ isDismantled: true })
       .eq("property_id", propertyDetails?.property_id);
@@ -446,7 +445,7 @@ export default function Page({ params }: PageProps) {
     }
 
     // inserting final log
-    const { data: newLog, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from("status_logs_table")
       .insert([
         {

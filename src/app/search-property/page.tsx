@@ -1,6 +1,6 @@
 "use client";
 import { Ban, Database, Logs, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
@@ -137,7 +137,7 @@ export default function Page() {
   };
 
   // Fetch rack and box data
-  const fetchRackBoxData = async () => {
+  const fetchRackBoxData = useCallback(async () => {
     if (!userData.thana) {
       console.log("⚠️ No thana available yet, skipping rack/box fetch");
       return;
@@ -187,7 +187,7 @@ export default function Page() {
     } finally {
       setRackBoxLoading(false);
     }
-  };
+  }, [userData.thana]);
 
   // Fetch all properties
   const fetchAllProperties = async () => {
@@ -238,7 +238,7 @@ export default function Page() {
     if (userData.thana) {
       fetchRackBoxData();
     }
-  }, [userData.thana]);
+  }, [userData.thana, fetchRackBoxData]);
 
   // Reset search value when category changes
   useEffect(() => {

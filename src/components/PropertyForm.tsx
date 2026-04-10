@@ -118,8 +118,6 @@ export default function PropertyForm() {
     batchNumber: ""
   });
 
-  let PropId: string;
-
   const [isSpecialProperty, setIsSpecialProperty] = useState(false)
 
   // Cleanup preview URLs to prevent memory leaks

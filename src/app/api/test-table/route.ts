@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import supabase from "@/config/supabaseConnect";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     console.log("🧪 Testing table structure and data");
     
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     console.log("❌ Any errors:", allError);
     
     // Test 2: Get unique thana values and sample racks/boxes
-    const { data: thanaData, error: thanaError } = await supabase
+    const { data: thanaData } = await supabase
       .from("thana_rack_box_table")
       .select("thana, racks, boxes");
       
