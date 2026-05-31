@@ -5,10 +5,33 @@ import supabase from '@/config/supabaseConnect';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana, updatedBy } = body;
+    const {
+      newusername,
+      newuserEmail,
+      newuserRole,
+      newuserPhone,
+      newuserThana,
+      newuserPassword,
+      updatedBy,
+    } = body;
 
-    if (!newusername || !newuserEmail || !newuserRole || !newuserPhone || !newuserThana || !updatedBy) {
+    if (
+      !newusername ||
+      !newuserEmail ||
+      !newuserRole ||
+      !newuserPhone ||
+      !newuserThana ||
+      !newuserPassword ||
+      !updatedBy
+    ) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    }
+
+    if (typeof newuserPassword !== 'string' || newuserPassword.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters.' },
+        { status: 400 }
+      );
     }
 
     const { data: existingUsers, error: checkError } = await supabase
@@ -32,6 +55,7 @@ export async function POST(req: Request) {
         phone: newuserPhone.trim().toLowerCase(),
         role: newuserRole.toLowerCase(),
         thana: newuserThana.toLowerCase(),
+        password: newuserPassword,
         updated_by: updatedBy,
         updated_at: new Date().toISOString(),
       },

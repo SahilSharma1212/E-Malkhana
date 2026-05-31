@@ -99,7 +99,11 @@ export default function Page() {
     newuserEmail: '',
     newuserPhone: '',
     newuserThana: '',
+    newuserPassword: '',
   });
+  const [passwordResetEmail, setPasswordResetEmail] = useState('');
+  const [passwordResetValue, setPasswordResetValue] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [selectedThana, setSelectedThana] = useState('');
   const [availableThanas, setAvailableThanas] = useState<string[]>([]);
   const [rackInput, setRackInput] = useState('');
@@ -402,10 +406,15 @@ export default function Page() {
   const handleUserGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana } = newUserGeneration;
+    const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana, newuserPassword } = newUserGeneration;
 
-    if (!newusername || !newuserEmail || !newuserRole || !newuserPhone || !newuserThana) {
+    if (!newusername || !newuserEmail || !newuserRole || !newuserPhone || !newuserThana || !newuserPassword) {
       toast.error('Please fill all fields.');
+      return;
+    }
+
+    if (newuserPassword.length < 6) {
+      toast.error('Password must be at least 6 characters.');
       return;
     }
 
@@ -416,6 +425,7 @@ export default function Page() {
         newuserRole,
         newuserPhone: "+91" + newuserPhone,
         newuserThana,
+        newuserPassword,
         updatedBy: user.name,
       });
 
@@ -427,10 +437,52 @@ export default function Page() {
         newuserEmail: '',
         newuserPhone: '',
         newuserThana: user.thana || '',
+        newuserPassword: '',
       });
     } catch (err) {
       console.error('Unexpected error:', err);
-      toast.error('Something went wrong.');
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Something went wrong.');
+      } else {
+        toast.error('Something went wrong.');
+      }
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!passwordResetEmail.trim() || !passwordResetValue) {
+      toast.error('Please fill email and new password.');
+      return;
+    }
+
+    if (passwordResetValue.length < 6) {
+      toast.error('Password must be at least 6 characters.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const res = await axios.post('/api/update-password', {
+        targetEmail: passwordResetEmail.trim(),
+        newPassword: passwordResetValue,
+        updatedBy: user.name,
+      });
+
+      if (res.data.success) {
+        toast.success(res.data.message || 'Password updated.');
+        setPasswordResetEmail('');
+        setPasswordResetValue('');
+      } else {
+        toast.error(res.data.message || 'Failed to update password.');
+      }
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.message || 'Failed to update password.');
+      } else {
+        toast.error('Unexpected error.');
+      }
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -1015,6 +1067,15 @@ export default function Page() {
                     setNewUserGeneration({ ...newUserGeneration, newuserPhone: e.target.value })
                   }
                 />
+                <input
+                  type="password"
+                  placeholder="Password (min 6 chars)"
+                  value={newUserGeneration.newuserPassword}
+                  className="w-full px-4 py-2 border rounded-md border-gray-300"
+                  onChange={(e) =>
+                    setNewUserGeneration({ ...newUserGeneration, newuserPassword: e.target.value })
+                  }
+                />
                 {user.role === 'admin' || user.role === 'super admin' ? (
                   <select
                     className="w-full px-4 py-2 border rounded-md border-gray-300"
@@ -1457,6 +1518,35 @@ export default function Page() {
               className="bg-red-600 text-white w-full py-2 rounded hover:bg-red-700 flex items-center justify-center"
               onClick={clearPropertyRecords}
             >Delete Records</button>
+          </div>
+
+          <div className='bg-white p-6 rounded-xl max-w-md shadow max-sm:w-full w-full'>
+            <p className="text-lg font-semibold mb-4 text-center">Reset User Password</p>
+            <label className="block mb-1">User Email</label>
+            <input
+              type="email"
+              className="w-full border px-3 py-2 rounded mb-3"
+              placeholder="user@example.com"
+              value={passwordResetEmail}
+              onChange={(e) => setPasswordResetEmail(e.target.value)}
+            />
+
+            <label className="block mb-1">New Password</label>
+            <input
+              type="password"
+              className="w-full border px-3 py-2 rounded mb-3"
+              placeholder="New password (min 6 chars)"
+              value={passwordResetValue}
+              onChange={(e) => setPasswordResetValue(e.target.value)}
+            />
+
+            <button
+              disabled={isResettingPassword}
+              className="bg-yellow-600 text-white w-full py-2 rounded hover:bg-yellow-700 flex items-center justify-center"
+              onClick={handlePasswordReset}
+            >
+              {isResettingPassword ? <Loader2 className='animate-spin' /> : "Update Password"}
+            </button>
           </div>
         </div>
       )

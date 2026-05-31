@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local helper scripts (may contain credentials)
+/scripts
+
 # vercel
 .vercel
 
