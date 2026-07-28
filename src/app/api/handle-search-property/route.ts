@@ -1,33 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import supabase from "@/config/supabaseConnect";
+import supabaseServer from "@/config/supabaseServer";
+import { getAuthedOfficer, isStationScoped, unauthorized } from "@/lib/apiAuth";
 
 type SearchRequest = {
   searchValue: string;
   searchCategory: string;
   column: string;
-  userData: {
-    role: string;
-    thana: string;
-  };
   rackBoxType?: string; // Optional, only for rackbox category
 };
 
+// Only these columns may be used in a free-text (ilike) filter. Anything else
+// is rejected so a caller can't probe arbitrary columns of property_table.
+const SEARCHABLE_COLUMNS = new Set([
+  "property_id",
+  "fir_number",
+  "serial_number_from_register",
+  "name_of_io",
+  "category_of_offence",
+  "type_of_seizure",
+  "place_of_seizure",
+  "court_name",
+  "police_station",
+  "rack_number",
+  "box_number",
+  "under_section",
+  "batch_number",
+]);
+
 export async function POST(req: NextRequest) {
   try {
-    const body: SearchRequest = await req.json();
-    const { searchValue, searchCategory, column, userData, rackBoxType } = body;
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
 
-    if (
-      !searchValue ||
-      !searchCategory ||
-      !column ||
-      !userData?.role ||
-      !userData?.thana
-    ) {
+    const body: SearchRequest = await req.json();
+    const { searchValue, searchCategory, column, rackBoxType } = body;
+
+    if (!searchValue || !searchCategory || !column) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    let query = supabase
+    let query = supabaseServer
       .from("property_table")
       .select("*")
       .not("property_id", "is", null)
@@ -66,19 +78,23 @@ export async function POST(req: NextRequest) {
       const from = new Date(searchValue);
       const to = new Date(searchValue);
       to.setDate(to.getDate() + 1);
-      
+
       // Use property_actually_added_at for created_at category, date_of_seizure for seizuredate
       const columnToSearch = searchCategory === "created_at" ? "property_actually_added_at" : "date_of_seizure";
-      
+
       query = query
         .gte(columnToSearch, from.toISOString())
         .lt(columnToSearch, to.toISOString());
     } else {
+      if (!SEARCHABLE_COLUMNS.has(column)) {
+        return NextResponse.json({ error: "Invalid search column" }, { status: 400 });
+      }
       query = query.ilike(column, `%${searchValue.trim()}%`);
     }
 
-    if (userData.role === "viewer" || userData.role === "thana admin") {
-      query = query.eq("police_station", userData.thana);
+    // Station-scoped officers only ever see their own thana's records.
+    if (isStationScoped(officer.role)) {
+      query = query.eq("police_station", officer.thana);
     }
 
     const { data, error } = await query;
@@ -88,10 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ data }, { status: 200 });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err || "Unknown error" },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }
 }

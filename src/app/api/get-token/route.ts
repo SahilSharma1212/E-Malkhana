@@ -14,8 +14,7 @@ export async function GET(request: Request) {
   try {
     const decoded = jwt.verify(token, SECRET_KEY); // verify and decode
     return NextResponse.json({ authenticated: true, user: decoded });
-  } catch (err) {
-    console.log('error - ', err)
+  } catch {
     return NextResponse.json({ authenticated: false });
   }
 }

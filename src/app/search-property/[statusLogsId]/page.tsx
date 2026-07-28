@@ -1,7 +1,17 @@
 "use client";
 import supabase from "@/config/supabaseConnect";
 import axios from "axios";
-import { Copy, FileText, FolderUp, Loader2, Plus, Upload, X } from "lucide-react";
+import {
+  Copy,
+  FileText,
+  FolderUp,
+  Loader2,
+  Plus,
+  Upload,
+  X,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, FormEvent, useRef, use } from "react";
@@ -9,6 +19,9 @@ import toast, { Toaster } from "react-hot-toast";
 import { FaFileExcel } from "react-icons/fa";
 import QRCode from "react-qr-code";
 import * as XLSX from "xlsx";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/badge";
 
 // Define interfaces
 interface StatusLog {
@@ -54,6 +67,27 @@ interface PageProps {
   }>;
 }
 
+// Safe date formatter — returns "N/A" for missing/invalid timestamps rather
+// than the 1970 epoch or "Invalid Date".
+const formatDate = (value?: string | null, withTime = false) => {
+  if (!value) return "N/A";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "N/A";
+  return withTime
+    ? d.toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+};
+
 export default function Page({ params }: PageProps) {
   const [ioBatchnum, setIOBatchNum] = useState("")
   const { statusLogsId } = use(params);
@@ -64,6 +98,9 @@ export default function Page({ params }: PageProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [hasAccess, setHasAccess] = useState<boolean>(false);
   const [propertyNotFound, setPropertyNotFound] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<boolean>(false);
+  const [isDismantling, setIsDismantling] = useState<boolean>(false);
+  const [confirmDismantle, setConfirmDismantle] = useState<boolean>(false);
   const propertyId = statusLogsId;
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,10 +114,19 @@ export default function Page({ params }: PageProps) {
     thana: "",
   });
   const [newImages, setNewImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-
+  // Create object URLs for the selected-but-not-yet-uploaded previews once per
+  // selection change, and revoke them on change/unmount so blob URLs don't leak.
+  useEffect(() => {
+    const urls = newImages.map((f) => URL.createObjectURL(f));
+    setImagePreviews(urls);
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [newImages]);
 
   const handleImageUpload = async (files: File[]) => {
     if (!propertyDetails) return;
@@ -173,20 +219,20 @@ export default function Page({ params }: PageProps) {
     }
   };
 
-
-
   // Fetch property details and status logs
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true);
         setPropertyNotFound(false);
+        setAuthError(false);
 
         // 1. Get user info
         const res = await axios.get('/api/get-token', { withCredentials: true });
         const userData = res.data.user;
 
         if (!userData) {
+          setAuthError(true);
           setHasAccess(false);
           setLoading(false);
           return;
@@ -217,7 +263,6 @@ export default function Page({ params }: PageProps) {
 
         // Check if property exists
         if (!propertyArray || propertyArray.length === 0) {
-          console.log("❌ Property not found:", propertyId);
           setPropertyNotFound(true);
           setHasAccess(false);
           setLoading(false);
@@ -263,6 +308,7 @@ export default function Page({ params }: PageProps) {
       } catch (error) {
         console.error("Unexpected error:", error);
         toast.error("An unexpected error occurred");
+        setAuthError(true);
       } finally {
         setLoading(false);
       }
@@ -275,6 +321,10 @@ export default function Page({ params }: PageProps) {
 
   // function to export to excel sheet
   const exportTableToExcel = () => {
+    if (statusLogs.length === 0) {
+      toast.error("No logs to export");
+      return;
+    }
     const table = document.getElementById('data-table');
     if (!table) return;
 
@@ -405,6 +455,9 @@ export default function Page({ params }: PageProps) {
   };
 
   const dismantleItem = async () => {
+    if (isDismantling) return;
+    try {
+    setIsDismantling(true);
 
     const { error } = await supabase
       .from("property_table")
@@ -452,6 +505,7 @@ export default function Page({ params }: PageProps) {
           property_id: propertyDetails?.property_id,
           status: "DISMANTLED",  // <-- your custom log message/status
           status_remarks: "DISMANTLED",
+          time_of_event: new Date().toISOString(),
           created_at: new Date().toISOString() // if you handle timestamps manually
         }
       ])
@@ -464,534 +518,618 @@ export default function Page({ params }: PageProps) {
       toast.success("New log created successfully");
     }
 
+    // Reflect the change locally so the UI updates without a manual refresh:
+    // hide the Eliminate button, refresh the (now trimmed) log list.
+    setPropertyDetails((prev) => (prev ? { ...prev, isDismantled: true } : prev));
 
-
+    const { data: refreshedLogs } = await supabase
+      .from("status_logs_table")
+      .select("*")
+      .eq("property_id", propertyDetails?.property_id);
+    setStatusLogs(refreshedLogs ?? []);
+    setAddingLogs(false);
+    } finally {
+      setIsDismantling(false);
+      setConfirmDismantle(false);
+    }
   }
 
+  const currentStatus = propertyDetails?.isDismantled
+    ? "Dismantled"
+    : propertyDetails?.case_status || "In custody";
+
+  const facts = propertyDetails
+    ? [
+        { label: "FIR Number", value: propertyDetails.fir_number, mono: true },
+        {
+          label: "Under Section",
+          value: Array.isArray(propertyDetails.under_section)
+            ? propertyDetails.under_section.join(", ")
+            : propertyDetails.under_section,
+        },
+        { label: "Description", value: propertyDetails.description },
+        { label: "Rack Number", value: propertyDetails.rack_number, mono: true },
+        { label: "Box Number", value: propertyDetails.box_number, mono: true },
+        { label: "Court Name", value: propertyDetails.name_of_court },
+        { label: "Offence Category", value: propertyDetails.category_of_offence },
+        { label: "Seizure Date", value: formatDate(propertyDetails.date_of_seizure) },
+        { label: "Investigating Officer", value: propertyDetails.name_of_io },
+        { label: "Case Status", value: propertyDetails.case_status },
+        { label: "Remarks", value: propertyDetails.remarks },
+        { label: "Created At", value: formatDate(propertyDetails.created_at, true) },
+        { label: "Police Station", value: propertyDetails.police_station },
+      ]
+    : [];
+
   return (
-    <div className="bg-blue-100 p-2 min-h-screen">
-      <div className="p-3 bg-white rounded-md pl-8 max-sm:pl-4 pt-7">
-        {loading && <div className="flex items-center justify-center text-blue-500"><Loader2 className="animate-spin" /></div>}
+    <div className="mx-auto w-full max-w-6xl">
+      {/* Page header */}
+      <div className="mb-5">
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Evidence Console
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+          Property Record
+        </h1>
+      </div>
 
-        {!loading && propertyNotFound && (
-          <div className="text-center text-red-600 font-semibold">
-            Property with ID &quot;{propertyId}&quot; not found. Please check the property ID and try again.
-          </div>
-        )}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" /> Loading record…
+        </div>
+      )}
 
-        {!loading && !propertyNotFound && !hasAccess && (
-          <div className="text-center text-red-600 font-semibold">
-            You don&apos;t have access to property of other thana. Only thana admins and higher roles have this access.
-          </div>
-        )}
+      {!loading && propertyNotFound && (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="font-semibold text-danger">
+              Property with ID &quot;{propertyId}&quot; was not found.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Check the property ID and try again.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-        {!loading && hasAccess && propertyDetails && (
-          <div className="mb-6 bg-blue-100 p-4 rounded shadow-sm flex flex-col items-center">
-            <h2 className="text-3xl font-bold mb-4 text-center">Property Details</h2>
-            <div className="flex flex-wrap w-full h-full items-center max-lg:flex-col max-lg:items-center max-sm:items-start gap-5">
-              <div className="flex flex-col items-center gap-6 w-[18%] max-md:w-full h-full mb-8 border py-8 rounded-sm border-gray-600 bg-white max-lg:w-70">
-                <QRCode value={propertyDetails.qr_id} className="h-32 w-32" />
-                <div className="flex items-center gap-2 bg-blue-100 px-2 py-1 rounded-sm max-w-64 overflow-x-auto">
-                  <p className="text-sm font-bold text-gray-700 break-all select-all">
-                    Copy Unique Qr
-                  </p>
-                  <button
-                    onClick={handleCopyQRId}
-                    title="Copy QR ID"
-                    className="hover:text-blue-600"
-                    type="button"
-                    aria-label="Copy QR ID"
-                  >
-                    <Copy size={15} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-justify gap-5 text-sm w-[78%] max-md:w-[100%] h-full max-md:justify-center flex-wrap max-lg:w-[98%]">
-                {[
-                  { label: "Property Number", value: propertyDetails.property_id },
-                  { label: "FIR Number", value: propertyDetails.fir_number },
-                  {
-                    label: "Under Section",
-                    value: Array.isArray(propertyDetails.under_section)
-                      ? propertyDetails.under_section.join(", ")
-                      : propertyDetails.under_section
-                  },
-                  { label: "Description", value: propertyDetails.description },
-                  { label: "Rack Number", value: propertyDetails.rack_number },
-                  { label: "Box Number", value: propertyDetails.box_number },
-                  { label: "Court Name", value: propertyDetails.name_of_court },
-                  { label: "Offence Category", value: propertyDetails.category_of_offence },
-                  {
-                    label: "Seizure Date", value: new Date(propertyDetails.date_of_seizure).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })
-                  },
-                  { label: "Investigating Officer", value: propertyDetails.name_of_io },
-                  { label: "Case Status", value: propertyDetails.case_status },
-                  { label: "Remarks", value: propertyDetails.remarks },
-                  {
-                    label: "Created At", value: new Date(propertyDetails.created_at).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })
-                  },
-                  { label: "Police Station", value: propertyDetails.police_station },
-
-                ].map((item, index) => (
-                  <div key={index} className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
-                    <p>
-                      <strong>{item.label}:</strong>{" "}
-                      <span className="text-gray-800">{item.value}</span>
-                    </p>
-                  </div>
-                ))}
-
-                {(propertyDetails.special_category_type == null || propertyDetails.special_category_type == "" || propertyDetails.special_category_type == undefined) ? (
-                  <div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5 text-red-500">
-                    <p>
-                      <strong>(Not a special property)</strong>{" "}
-
-                    </p>
-                  </div>
-                ) : (
-                  <><div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
-                    <p>
-                      <strong>Special Property Type : </strong>{" "}
-                      <span className="text-gray-800">{propertyDetails.special_category_type}</span>
-                    </p>
-                  </div>
-                    <div className="flex flex-col h-full justify-start gap-5 w-[22%] max-md:w-[30%] max-sm:w-10/12 mb-2.5">
-                      <p>
-                        <strong>Property Worth:</strong>{" "}
-                        <span className="text-gray-800">Rs. {propertyDetails.special_category_worth}/-</span>
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
+      {!loading && authError && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="font-semibold text-danger">Couldn&apos;t load this record</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Your session may have expired, or the record couldn&apos;t be reached. Sign in again or retry.
+            </p>
+            <div className="mt-1 flex gap-3">
+              <a
+                href="/sign-in"
+                className="inline-flex items-center justify-center rounded-sm bg-signal px-4 py-2 text-sm font-semibold text-signal-foreground transition-colors hover:bg-signal/90"
+              >
+                Sign in
+              </a>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Retry
+              </Button>
             </div>
-          </div>
-        )}
-        {/* Rendering images if available... */}
-        {!loading && hasAccess && propertyDetails?.image_url && propertyDetails.image_url.length > 0 && (
-          // Replace the existing upload div with this enhanced version:
-          <div className="mb-8 bg-blue-50 rounded-md p-4 shadow-sm w-full">
-            <h2 className="text-2xl font-bold mb-4 text-center text-gray-700">Property Images</h2>
-            <div className="flex flex-wrap justify-center gap-4">
-              {propertyDetails.image_url && propertyDetails.image_url.length > 0 &&
-                propertyDetails.image_url.map((url, idx) => (
-                  <div key={idx} className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
-                    <Image
-                      src={url}
-                      alt={`Property Image ${idx + 1}`}
-                      width={240}
-                      height={240}
-                      className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
-                      unoptimized
-                    />
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !authError && !propertyNotFound && !hasAccess && (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="font-semibold text-danger">Access restricted</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You don&apos;t have access to records of another thana. Only thana admins and higher roles can view these.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && hasAccess && propertyDetails && (
+        <div className="space-y-6">
+          {/* Record header */}
+          <Card>
+            <CardContent className="pt-5">
+              <div className="flex flex-col gap-6 lg:flex-row">
+                {/* QR block */}
+                <div className="flex shrink-0 flex-col items-center gap-3 rounded-sm border border-border bg-secondary/50 p-5 lg:w-56">
+                  <div className="rounded-sm bg-white p-2.5">
+                    <QRCode value={propertyDetails.qr_id} className="h-32 w-32" />
                   </div>
-                ))
-              }
+                  <Button variant="outline" size="sm" onClick={handleCopyQRId}>
+                    <Copy size={14} /> Copy QR value
+                  </Button>
+                </div>
 
-              {/*Image Upload Area */}
-              {canAddLogs() && (
-                <>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => {
-                      const files = e.target.files ? Array.from(e.target.files) : [];
-                      if (files.length > 0) {
-                        setNewImages(files);
-                      }
-                    }}
-                    className="hidden"
-                    ref={imageInputRef}
-                    disabled={uploadingImages}
-                  />
-
-                  <div
-                    className="h-[240px] w-[240px] border border-dashed border-gray-700 rounded-xl bg-black/5 flex items-center justify-center flex-col gap-3 relative cursor-pointer hover:bg-black/10 transition-colors"
-                    onClick={() => !uploadingImages && imageInputRef.current?.click()}
-                  >
-                    {uploadingImages ? (
-                      <>
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-700"></div>
-                        <p className="text-sm">Uploading...</p>
-                      </>
+                {/* Facts */}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <span className="mono-id text-lg font-semibold text-foreground">
+                      {propertyDetails.property_id}
+                    </span>
+                    <StatusBadge status={currentStatus} />
+                    {propertyDetails.special_category_type ? (
+                      <span className="rounded-sm border border-signal/40 bg-signal/10 px-2 py-0.5 text-xs font-medium text-[color:var(--warning)]">
+                        Special · {propertyDetails.special_category_type} · Rs.{" "}
+                        {propertyDetails.special_category_worth ?? 0}/-
+                      </span>
                     ) : (
-                      <>
-                        <Upload className="text-gray-600" size={32} />
-                        <p className="text-gray-600 font-medium">Upload Images</p>
-                        <p className="text-xs text-gray-500 text-center px-2">
-                          Click to select multiple images
-                          <br />
-                          (Max 5MB each)
-                        </p>
-                      </>
+                      <span className="text-xs text-muted-foreground">Not a special property</span>
                     )}
                   </div>
-                </>
-              )}
-            </div>
 
-            {/* Preview selected images before upload */}
-            {newImages.length > 0 && (
-              <div className="mt-4 p-4 bg-black/10 rounded border">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold">Selected Image</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleImageUpload(newImages)}
-                      disabled={uploadingImages}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400 text-sm"
-                    >
-                      {uploadingImages ? <Loader2 /> : "Upload"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setNewImages([]);
-                        if (imageInputRef.current) imageInputRef.current.value = "";
-                      }}
-                      disabled={uploadingImages}
-                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:bg-red-400 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center">
-                  {newImages.map((file, idx) => (
-                    <div key={idx} className="relative">
-                      <div className="w-60 h-60 overflow-hidden rounded border border-gray-300 shadow-sm">
-                        <Image
-                          src={URL.createObjectURL(file)}
-                          alt={`Preview ${idx + 1}`}
-                          width={200}
-                          height={200}
-                          className="w-full h-full object-cover"
-                          unoptimized
-                        />
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-sm md:grid-cols-3">
+                    {facts.map((item, index) => (
+                      <div key={index} className="min-w-0">
+                        <dt className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+                          {item.label}
+                        </dt>
+                        <dd
+                          className={`mt-0.5 break-words text-foreground ${item.mono ? "mono-id" : ""}`}
+                        >
+                          {item.value || "—"}
+                        </dd>
                       </div>
-                      <button
-                        onClick={() => setNewImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute -top-1 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                        disabled={uploadingImages}
-                      >
-                        X
-                      </button>
-                      <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Property images */}
+          {propertyDetails?.image_url && propertyDetails.image_url.length > 0 && (
+            <Card>
+              <CardContent className="pt-5">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Property Images
+                </h2>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {propertyDetails.image_url.map((url, idx) => (
+                    <div
+                      key={idx}
+                      className="h-56 w-56 overflow-hidden rounded-sm border border-border shadow-sm"
+                    >
+                      <Image
+                        src={url}
+                        alt={`Property Image ${idx + 1}`}
+                        width={224}
+                        height={224}
+                        className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                        unoptimized
+                      />
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Logs */}
-        {!loading && hasAccess && (
-          <div className="flex flex-col items-center">
-            <h1 className="text-3xl font-bold text-blue-700 mb-2">Status Logs</h1>
-            {statusLogs.length === 0 ? (
-              <p className="italic text-gray-600">No logs found.</p>
-            ) : (
-              <div className="w-full overflow-x-auto max-w-full">
-                <table id="data-table" className="min-w-full border border-gray-300 text-sm">
-                  <thead>
-                    <tr className="bg-gray-100 text-left font-semibold text-gray-700">
-                      <th className="border px-4 py-2">Remarks</th>
-                      <th className="border px-4 py-2">Officer</th>
-                      <th className="border px-4 py-2">Updated By</th>
-                      <th className="border px-4 py-2">Event Date</th>
-                      <th className="border px-4 py-2">Created At</th>
-                      <th className="border px-4 py-2">Status</th>
-                      <th className="border px-4 py-2">Reason</th>
-                      <th className="border px-4 py-2">Log Report</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statusLogs && Array.isArray(statusLogs) && statusLogs.length > 0 ?
-                      statusLogs.map((log, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="border px-4 py-2">{log.status_remarks ?? "N/A"}</td>
-                          <td className="border px-4 py-2">{log.handling_officer ?? "N/A"}</td>
-                          <td className="border px-4 py-2">{log.updated_by ?? "N/A"}</td>
-                          <td className="border px-4 py-2">
-                            {new Date(log.time_of_event).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            })}
-                          </td>
-                          <td className="border px-4 py-2">
-                            {new Date(log.created_at).toLocaleString('en-IN', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </td>
-                          <td className="border px-4 py-2">{log.status}</td>
-                          <td className="border px-4 py-2">{log.reason}</td>
-                          <td className="border px-4 py-2 flex justify-center" title={log.pdf_url?.length > 0 ? "View PDFs" : "No PDFs Uploaded"}>
-                            {log.pdf_url && log.pdf_url.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {log.pdf_url.map((url, idx) => (
-                                  <Link key={idx} href={url} target="_blank" aria-label={`View PDF ${idx + 1}`}>
-                                    <FileText className="text-blue-600" strokeWidth={2} />
-                                  </Link>
-                                ))}
-                              </div>
-                            ) : (
-                              <FolderUp className="text-gray-500" aria-label="No PDF" />
-                            )}
-                          </td>
-                        </tr>
-                      )) :
-                      <tr>
-                        <td colSpan={8} className="border px-4 py-2 text-center text-gray-500">
-                          No Logs Available
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="py-3 px-3 flex justify-end items-center w-full">
-              <button
-                className="border border-green-500 border-dashed px-3 py-2 bg-green-50 hover:bg-green-200 rounded-md flex items-center justify-center gap-2 text-green-700"
-                onClick={exportTableToExcel}
-              >
-                <span>Export</span>
-                <FaFileExcel />
-              </button>
-            </div>
-          </div>
-        )}
-
-
-        {/* special property dismantling div */}
-        {(propertyDetails?.special_category_type != '' && propertyDetails?.special_category_type != null && propertyDetails?.special_category_type != undefined && propertyDetails.isDismantled == false) &&
-          (<div className="text-red-900 mt-4 flex items-center max-sm:flex-col gap-4">
-            <p className="max-sm:text-xs text-center">This is a special property, If already submitted / confiscated in court please dismantle its records by clicking on the <span className="inline font-semibold">Eliminate</span> button</p>
-            <button
-              className="bg-red-200 hover:bg-red-300 border border-red-500 rounded px-3 py-1"
-              onClick={dismantleItem}
-            >Eliminate</button>
-          </div>)}
-
-        {/* Adding Logs */}
-        {!loading && hasAccess && propertyDetails?.isDismantled == false && canAddLogs() && (
-          <div className="p-4 bg-white rounded-md mt-3 flex items-start justify-center flex-col">
-            <button
-              className={`inline-flex items-center justify-center gap-2 text-white py-2 px-3 rounded-sm hover:bg-green-700 ${addingLogs ? "bg-red-500 hover:bg-red-700" : "bg-blue-500 hover:bg-blue-700"}`}
-              onClick={() => setAddingLogs(!addingLogs)}
-              type="button"
-              aria-label={addingLogs ? "Cancel adding log" : "Add new log"}
-            >
-              {addingLogs ? <p>Cancel</p> : <p>Add Logs</p>}
-              {addingLogs ? <X /> : <Plus />}
-            </button>
-            {addingLogs && (
-              <form ref={formRef} onSubmit={handleSubmit} className="mt-4 w-full flex flex-wrap gap-4">
-                <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                  <label htmlFor="status" className="font-medium">
-                    Status
-                  </label>
-                  <select
-                    id="status"
-                    name="status"
-                    required
-                    className="border p-2 rounded-sm"
-                  >
-                    <option value="Entry">Entry of item</option>
-                    <option value="Departure">Departure of item</option>
-                  </select>
-                </div>
-                {[
-                  { name: "status_remarks", label: "Remarks", placeholder: "Optional remarks", required: false },
-                  { name: "handling_officer", label: "Handling Officer", placeholder: "Officer name", required: true },
-                ].map((field) => (
-                  <div key={field.name} className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                    <label htmlFor={field.name} className="font-medium">
-                      {field.label}
-                    </label>
-                    <input
-                      id={field.name}
-                      name={field.name}
-                      required={field.required}
-                      placeholder={field.placeholder}
-                      className="border p-2 rounded-sm"
-                      type="text"
-                    />
-                  </div>
-                ))}
-                <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                  <label htmlFor="time_of_event" className="font-medium">
-                    Time of Event
-                  </label>
-                  <input
-                    id="time_of_event"
-                    type="date"
-                    name="time_of_event"
-                    required
-                    className="border p-2 rounded-sm"
-                  />
-                </div>
-                <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                  <label htmlFor="reason" className="font-medium">
-                    Reason
-                  </label>
-                  {reason === "other" ? (
-                    <div className="flex justify-between">
+                  {/* Image upload area */}
+                  {canAddLogs() && (
+                    <>
                       <input
-                        type="text"
-                        name="reason"
-                        id="reason"
-                        required
-                        value={customReason}
-                        onChange={(e) => setCustomReason(e.target.value)}
-                        className="border p-2 rounded-sm w-[80%]"
-                      />
-                      <button
-                        type="button"
-                        className="w-[15%] h-full bg-gray-50 hover:bg-gray-200 rounded-md"
-                        onClick={() => {
-                          setCustomReason("");
-                          setReason("fsl");
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = e.target.files ? Array.from(e.target.files) : [];
+                          if (files.length > 0) setNewImages(files);
                         }}
+                        className="hidden"
+                        ref={imageInputRef}
+                        disabled={uploadingImages}
+                      />
+                      <div
+                        className="flex h-56 w-56 cursor-pointer flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-border bg-secondary/40 transition-colors hover:bg-secondary"
+                        onClick={() => !uploadingImages && imageInputRef.current?.click()}
                       >
-                        X
-                      </button>
-                    </div>
-                  ) : (
-                    <select
-                      id="reason"
-                      name="reason"
-                      required
-                      value={reason}
-                      onChange={(e) => {
-                        const selected = e.target.value;
-                        setReason(selected);
-                        if (selected === "other") {
-                          setCustomReason("other - ");
-                        }
-                      }}
-                      className="border p-2 rounded-sm"
-                    >
-                      <option value="fsl">FSL</option>
-                      <option value="court">Court</option>
-                      <option value="mulaiza">Mulaiza</option>
-                      <option value="medical unit">Medical Unit</option>
-                      <option value="cyber lab">Cyber Lab</option>
-                      <option value="destruction">Destruction</option>
-                      <option value="sutranama">Sutranama</option>
-                      <option value="other">other</option>
-                    </select>
+                        {uploadingImages ? (
+                          <>
+                            <Loader2 className="size-7 animate-spin text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">Uploading…</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="size-7 text-muted-foreground" />
+                            <p className="text-sm font-medium text-foreground">Upload images</p>
+                            <p className="px-2 text-center text-xs text-muted-foreground">
+                              Click to select · max 5MB each
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
 
-                <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                  <label htmlFor="ioBatchNum" className="font-medium">
-                    IO Batch No.
-                  </label>
-                  <input
-                    required
-                    placeholder="Batch Number"
-                    className="border p-2 rounded-sm"
-                    type="text"
-                    value={ioBatchnum}
-                    onChange={(e) => setIOBatchNum(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col w-[30%] max-md:w-[40%] max-sm:w-[75%]">
-                  <label htmlFor="pdf-upload" className="font-medium">
-                    Upload PDF Reports (optional)
-                  </label>
-                  <div className="relative flex flex-col gap-2 mt-1">
-                    <input
-                      type="file"
-                      id="pdf-upload"
-                      accept="application/pdf"
-                      multiple
-                      onChange={(e) => {
-                        const files = e.target.files ? Array.from(e.target.files) : [];
-                        setPdfFiles((prev) => [...prev, ...files]);
-                      }}
-                      className="hidden"
-                      ref={fileInputRef}
-                      aria-label="Upload PDF Reports"
-                    />
-                    <button
-                      type="button"
-                      className="bg-blue-50 text-blue-700 border border-blue-600 py-1 px-4 rounded-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 transition-colors"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      Choose Files
-                    </button>
-                    <div className="flex flex-col gap-1">
-                      {pdfFiles.map((file, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between bg-gray-50 px-2 py-1 rounded border"
+                {/* Preview selected images before upload */}
+                {newImages.length > 0 && (
+                  <div className="mt-4 rounded-sm border border-border bg-secondary/40 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground">Selected images</h3>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="signal"
+                          size="sm"
+                          onClick={() => handleImageUpload(newImages)}
+                          disabled={uploadingImages}
                         >
-                          <span className="text-sm truncate">{file.name}</span>
+                          {uploadingImages ? <Loader2 className="size-4 animate-spin" /> : "Upload"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setNewImages([]);
+                            if (imageInputRef.current) imageInputRef.current.value = "";
+                          }}
+                          disabled={uploadingImages}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      {newImages.map((file, idx) => (
+                        <div key={idx} className="relative">
+                          <div className="h-40 w-40 overflow-hidden rounded-sm border border-border shadow-sm">
+                            {imagePreviews[idx] && (
+                              <Image
+                                src={imagePreviews[idx]}
+                                alt={`Preview ${idx + 1}`}
+                                width={160}
+                                height={160}
+                                className="h-full w-full object-cover"
+                                unoptimized
+                              />
+                            )}
+                          </div>
                           <button
-                            type="button"
-                            className="text-red-600 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                            onClick={() => setPdfFiles((prev) => prev.filter((_, i) => i !== idx))}
-                            aria-label={`Remove ${file.name}`}
+                            onClick={() => setNewImages((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-destructive text-xs text-white hover:bg-destructive/90"
+                            disabled={uploadingImages}
+                            aria-label="Remove image"
                           >
-                            <X size={14} />
+                            <X size={12} />
                           </button>
+                          <p className="mt-1 max-w-40 truncate text-xs text-muted-foreground">{file.name}</p>
                         </div>
                       ))}
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-3 w-full justify-start">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white py-2 px-4 rounded-sm hover:bg-blue-700 disabled:bg-blue-400"
-                    disabled={submitting}
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Chain of custody */}
+          <Card>
+            <CardContent className="pt-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Chain of Custody
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportTableToExcel}
+                  disabled={statusLogs.length === 0}
+                >
+                  <FaFileExcel /> Export
+                </Button>
+              </div>
+
+              {statusLogs.length === 0 ? (
+                <p className="py-6 text-center text-sm italic text-muted-foreground">
+                  No custody logs recorded yet.
+                </p>
+              ) : (
+                <ol className="relative ml-2 border-l border-border">
+                  {statusLogs.map((log, index) => (
+                    <li key={index} className="relative pb-6 pl-6 last:pb-0">
+                      {/* Node dot on the rail */}
+                      <span
+                        className="absolute -left-[6.5px] top-1 size-3 rounded-full border-2 border-card bg-signal"
+                        aria-hidden
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={log.status} />
+                        <span className="mono-id text-xs text-muted-foreground">
+                          {formatDate(log.time_of_event)}
+                        </span>
+                      </div>
+                      <div className="mt-2 rounded-sm border border-border bg-card px-3.5 py-2.5">
+                        <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-sm md:grid-cols-4">
+                          <div>
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Officer</span>
+                            <span className="text-foreground">{log.handling_officer ?? "N/A"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Updated by</span>
+                            <span className="text-foreground">{log.updated_by ?? "N/A"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Reason</span>
+                            <span className="text-foreground">{log.reason ?? "N/A"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Recorded</span>
+                            <span className="text-foreground">{formatDate(log.created_at, true)}</span>
+                          </div>
+                          <div className="col-span-2 md:col-span-3">
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Remarks</span>
+                            <span className="text-foreground">{log.status_remarks || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[0.65rem] uppercase tracking-wide text-muted-foreground">Report</span>
+                            {log.pdf_url && log.pdf_url.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {log.pdf_url.map((url, idx) => (
+                                  <Link key={idx} href={url} target="_blank" aria-label={`View PDF ${idx + 1}`}>
+                                    <FileText className="size-4 text-primary" strokeWidth={2} />
+                                  </Link>
+                                ))}
+                              </div>
+                            ) : (
+                              <FolderUp className="size-4 text-muted-foreground" aria-label="No PDF" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+
+              {/* Hidden table kept in the DOM so Excel export can read it. */}
+              {statusLogs.length > 0 && (
+                <table id="data-table" className="sr-only">
+                  <thead>
+                    <tr>
+                      <th>Remarks</th>
+                      <th>Officer</th>
+                      <th>Updated By</th>
+                      <th>Event Date</th>
+                      <th>Created At</th>
+                      <th>Status</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statusLogs.map((log, index) => (
+                      <tr key={index}>
+                        <td>{log.status_remarks ?? "N/A"}</td>
+                        <td>{log.handling_officer ?? "N/A"}</td>
+                        <td>{log.updated_by ?? "N/A"}</td>
+                        <td>{formatDate(log.time_of_event)}</td>
+                        <td>{formatDate(log.created_at, true)}</td>
+                        <td>{log.status}</td>
+                        <td>{log.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Special property dismantling */}
+          {propertyDetails?.special_category_type != '' &&
+            propertyDetails?.special_category_type != null &&
+            propertyDetails?.special_category_type != undefined &&
+            propertyDetails.isDismantled == false && (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-4 py-4 sm:flex-row">
+                  <ShieldAlert className="size-6 shrink-0 text-danger" />
+                  <p className="flex-1 text-sm text-foreground">
+                    This is a special property. If it has already been submitted / confiscated in
+                    court, dismantle its records with the <strong>Eliminate</strong> action.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="shrink-0"
+                    disabled={isDismantling}
+                    onClick={() => {
+                      if (isDismantling) return;
+                      if (!confirmDismantle) {
+                        setConfirmDismantle(true);
+                        setTimeout(() => setConfirmDismantle(false), 4000);
+                        return;
+                      }
+                      dismantleItem();
+                    }}
                   >
-                    {submitting ? "Submitting..." : "Submit"}
-                  </button>
-                  <button
-                    type="button"
-                    className="bg-red-500 text-white py-2 px-4 rounded-sm hover:bg-red-700 disabled:bg-red-400"
-                    onClick={handleCancel}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+                    {isDismantling ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Trash2 className="size-4" /> {confirmDismantle ? 'Confirm eliminate' : 'Eliminate'}
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
 
-          </div>
-        )}
+          {/* Adding logs */}
+          {propertyDetails?.isDismantled == false && canAddLogs() && (
+            <Card>
+              <CardContent className="pt-5">
+                <Button
+                  variant={addingLogs ? "outline" : "signal"}
+                  onClick={() => setAddingLogs(!addingLogs)}
+                  type="button"
+                >
+                  {addingLogs ? (
+                    <>
+                      Cancel <X className="size-4" />
+                    </>
+                  ) : (
+                    <>
+                      Add Log <Plus className="size-4" />
+                    </>
+                  )}
+                </Button>
 
-        {propertyDetails?.isDismantled == true && (
-          <div className="text-center text-red-700 text-sm">
-            This has been dismantled / submitted to court
-          </div>
-        )}
+                {addingLogs && (
+                  <form ref={formRef} onSubmit={handleSubmit} className="mt-4 flex flex-wrap gap-4">
+                    <div className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                      <label htmlFor="status" className="text-sm font-medium">Status</label>
+                      <select id="status" name="status" required className="text-input w-full">
+                        <option value="Entry">Entry of item</option>
+                        <option value="Departure">Departure of item</option>
+                      </select>
+                    </div>
 
-        <Toaster />
-      </div>
+                    {[
+                      { name: "status_remarks", label: "Remarks", placeholder: "Optional remarks", required: false },
+                      { name: "handling_officer", label: "Handling Officer", placeholder: "Officer name", required: true },
+                    ].map((field) => (
+                      <div key={field.name} className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                        <label htmlFor={field.name} className="text-sm font-medium">{field.label}</label>
+                        <input
+                          id={field.name}
+                          name={field.name}
+                          required={field.required}
+                          placeholder={field.placeholder}
+                          className="text-input w-full"
+                          type="text"
+                        />
+                      </div>
+                    ))}
+
+                    <div className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                      <label htmlFor="time_of_event" className="text-sm font-medium">Time of Event</label>
+                      <input id="time_of_event" type="date" name="time_of_event" required className="text-input w-full" />
+                    </div>
+
+                    <div className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                      <label htmlFor="reason" className="text-sm font-medium">Reason</label>
+                      {reason === "other" ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            name="reason"
+                            id="reason"
+                            required
+                            value={customReason}
+                            onChange={(e) => setCustomReason(e.target.value)}
+                            className="text-input w-full flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              setCustomReason("");
+                              setReason("fsl");
+                            }}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <select
+                          id="reason"
+                          name="reason"
+                          required
+                          value={reason}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            setReason(selected);
+                            if (selected === "other") setCustomReason("other - ");
+                          }}
+                          className="text-input w-full"
+                        >
+                          <option value="fsl">FSL</option>
+                          <option value="court">Court</option>
+                          <option value="mulaiza">Mulaiza</option>
+                          <option value="medical unit">Medical Unit</option>
+                          <option value="cyber lab">Cyber Lab</option>
+                          <option value="destruction">Destruction</option>
+                          <option value="sutranama">Sutranama</option>
+                          <option value="other">other</option>
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                      <label htmlFor="ioBatchNum" className="text-sm font-medium">IO Batch No.</label>
+                      <input
+                        id="ioBatchNum"
+                        required
+                        placeholder="Batch Number"
+                        className="text-input w-full"
+                        type="text"
+                        value={ioBatchnum}
+                        onChange={(e) => setIOBatchNum(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="flex w-[30%] flex-col gap-1 max-md:w-[45%] max-sm:w-full">
+                      <label htmlFor="pdf-upload" className="text-sm font-medium">Upload PDF Reports (optional)</label>
+                      <input
+                        type="file"
+                        id="pdf-upload"
+                        accept="application/pdf"
+                        multiple
+                        onChange={(e) => {
+                          const files = e.target.files ? Array.from(e.target.files) : [];
+                          setPdfFiles((prev) => [...prev, ...files]);
+                        }}
+                        className="hidden"
+                        ref={fileInputRef}
+                        aria-label="Upload PDF Reports"
+                      />
+                      <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                        Choose files
+                      </Button>
+                      <div className="mt-1 flex flex-col gap-1">
+                        {pdfFiles.map((file, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded-sm border border-border bg-secondary/40 px-2 py-1"
+                          >
+                            <span className="truncate text-sm">{file.name}</span>
+                            <button
+                              type="button"
+                              className="text-danger hover:opacity-80"
+                              onClick={() => setPdfFiles((prev) => prev.filter((_, i) => i !== idx))}
+                              aria-label={`Remove ${file.name}`}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex w-full justify-start gap-3">
+                      <Button type="submit" variant="signal" disabled={submitting}>
+                        {submitting ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin" /> Submitting…
+                          </>
+                        ) : (
+                          "Submit log"
+                        )}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleCancel} disabled={submitting}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {propertyDetails?.isDismantled == true && (
+            <div className="rounded-sm border border-danger/30 bg-danger/5 px-4 py-3 text-center text-sm font-medium text-danger">
+              This record has been dismantled / submitted to court.
+            </div>
+          )}
+        </div>
+      )}
+
+      <Toaster position="top-right" />
     </div>
   );
 }

@@ -1,21 +1,27 @@
 // app/api/update-thana-name/route.ts
 
 import { NextResponse } from "next/server";
-import supabase from "@/config/supabaseConnect";
+import supabaseServer from "@/config/supabaseServer";
+import { getAuthedOfficer, isSuperAdmin, unauthorized, forbidden } from "@/lib/apiAuth";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { selectedThana, newThanaName, userName } = body;
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+    if (!isSuperAdmin(officer.role)) return forbidden();
 
-    if (!selectedThana || !newThanaName || !userName) {
+    const body = await req.json();
+    const { selectedThana, newThanaName } = body;
+    const userName = officer.email;
+
+    if (!selectedThana || !newThanaName) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
 
     const lowerNewName = newThanaName.toLowerCase();
 
     // 1. Check if new name already exists
-    const { data: existingThana, error: checkError } = await supabase
+    const { data: existingThana, error: checkError } = await supabaseServer
       .from("thana_rack_box_table")
       .select("thana")
       .eq("thana", lowerNewName)
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Update in thana_rack_box_table
-    const { error: updateRackBoxError } = await supabase
+    const { error: updateRackBoxError } = await supabaseServer
       .from("thana_rack_box_table")
       .update({
         thana: lowerNewName,
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Update in officer_table
-    const { error: officerError } = await supabase
+    const { error: officerError } = await supabaseServer
       .from("officer_table")
       .update({ thana: lowerNewName })
       .eq("thana", selectedThana);
@@ -54,7 +60,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Update in property_table
-    const { error: propertyError } = await supabase
+    const { error: propertyError } = await supabaseServer
       .from("property_table")
       .update({ police_station: lowerNewName })
       .eq("police_station", selectedThana);

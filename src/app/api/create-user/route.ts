@@ -1,50 +1,58 @@
 // /app/api/create-user/route.ts
 import { NextResponse } from 'next/server';
-import supabase from '@/config/supabaseConnect';
+import supabaseServer from '@/config/supabaseServer';
+import { getAuthedOfficer, isAdmin, unauthorized, forbidden } from '@/lib/apiAuth';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana, updatedBy } = body;
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+    if (!isAdmin(officer.role)) return forbidden();
 
-    if (!newusername || !newuserEmail || !newuserRole || !newuserPhone || !newuserThana || !updatedBy) {
+    const body = await req.json();
+    const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana } = body;
+
+    if (!newusername || !newuserEmail || !newuserRole || !newuserPhone || !newuserThana) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
     }
 
-    const { data: existingUsers, error: checkError } = await supabase
-      .from('officer_table')
-      .select('*')
-      .or(`email_id.eq.${newuserEmail},phone.eq.${newuserPhone}`);
+    const email = String(newuserEmail).trim().toLowerCase();
+    const phone = String(newuserPhone).trim().toLowerCase();
 
-    if (checkError) {
-      console.error('Check error:', checkError.message);
+    // Check email and phone separately with parameterized .eq() filters so user
+    // input can't break out of a string-built PostgREST filter.
+    const [{ data: byEmail, error: emailErr }, { data: byPhone, error: phoneErr }] =
+      await Promise.all([
+        supabaseServer.from('officer_table').select('id').eq('email_id', email).limit(1),
+        supabaseServer.from('officer_table').select('id').eq('phone', phone).limit(1),
+      ]);
+
+    if (emailErr || phoneErr) {
       return NextResponse.json({ error: 'Error checking existing user.' }, { status: 500 });
     }
 
-    if (existingUsers && existingUsers.length > 0) {
+    if ((byEmail && byEmail.length > 0) || (byPhone && byPhone.length > 0)) {
       return NextResponse.json({ error: 'User with this email or phone already exists.' }, { status: 409 });
     }
 
-    const { error: insertError } = await supabase.from('officer_table').insert([
+    const { error: insertError } = await supabaseServer.from('officer_table').insert([
       {
-        officer_name: newusername.toLowerCase(),
-        email_id: newuserEmail.trim(),
-        phone: newuserPhone.trim().toLowerCase(),
-        role: newuserRole.toLowerCase(),
-        thana: newuserThana.toLowerCase(),
-        updated_by: updatedBy,
+        officer_name: String(newusername).toLowerCase(),
+        email_id: email,
+        phone,
+        role: String(newuserRole).toLowerCase(),
+        thana: String(newuserThana).toLowerCase(),
+        updated_by: officer.email,
         updated_at: new Date().toISOString(),
       },
     ]);
 
     if (insertError) {
-      console.error('Insert error:', insertError.message);
       return NextResponse.json({ error: 'Failed to create user.' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'User created successfully.' }, { status: 200 });
-  } catch (err) {
-    console.error('Unexpected error:', err);
+  } catch {
     return NextResponse.json({ error: 'Unexpected server error.' }, { status: 500 });
   }
 }

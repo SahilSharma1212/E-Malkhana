@@ -2,125 +2,122 @@
 
 import PropertyForm from '@/components/PropertyForm';
 import supabase from '@/config/supabaseConnect';
-import { QrCode, Search, User } from 'lucide-react';
-import Image from 'next/image';
+import { QrCode, Search, User, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 
-export default function Page() {
+function HomeContent() {
   const searchParams = useSearchParams();
-  const qrId = searchParams?.get('qrId'); // safer access
+  const qrId = searchParams?.get('qrId');
 
   const [isValidQrId, setIsValidQrId] = useState<boolean | null>(null); // null = loading
 
   useEffect(() => {
-    if (qrId === null) return; // wait until qrId is hydrated
+    // No QR id in the URL — nothing to validate; the entry-choices screen
+    // below handles this case.
+    if (!qrId || qrId.trim() === '') return;
+
+    let active = true;
 
     const validateQr = async () => {
-      if (typeof qrId !== 'string' || qrId.trim() === '') {
-        setIsValidQrId(false);
-        return;
-      }
-
+      // Match on the unique qrId value rather than the full URL, so a code
+      // resolves the same way on localhost, preview, and production.
       const { data, error } = await supabase
         .from('property_table')
-        .select('*')
-        .eq('qr_id', window.location.href)
+        .select('property_id')
+        .ilike('qr_id', `%qrId=${qrId}`)
         .maybeSingle();
 
-      if (error) {
-        toast.error("Couldn't find QR ID")
-        setIsValidQrId(false)
-      } else if (!data) {
-        toast.error('Inavlid QR');
-        setIsValidQrId(false)
-      } else {
-        setIsValidQrId(true)
-      }
+      if (!active) return;
 
+      if (error) {
+        toast.error("Couldn't validate QR ID");
+        setIsValidQrId(false);
+      } else if (!data) {
+        toast.error('Invalid QR');
+        setIsValidQrId(false);
+      } else {
+        setIsValidQrId(true);
+      }
     };
 
-
-
     validateQr();
+
+    return () => {
+      active = false;
+    };
   }, [qrId]);
 
-  if (window.location.href == "http://localhost:3000/" || window.location.href == "https://e-malkhana-smoky.vercel.app/") {
+  // No QR id present — show the app entry choices.
+  if (!qrId || qrId.trim() === '') {
     return (
-      <div className='h-100 flex items-center justify-center'>
-        <div className='flex items-center justify-center flex-col p-8 rounded-lg bg-white shadow-lg gap-3'>
-          <p className='text-red-700 text-2xl font-bold text-center'>You dont have any valid QR ID</p>
-          <p className='text-base text-center'>You can still continue to the app</p>
-          <div className='flex items-center justify-center gap-3 mt-5 max-sm:flex-col w-full'>
-            <Link href="/search-property" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
-              <p>Search</p>
-              <Search strokeWidth={1} />
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-md border border-border bg-card p-8 text-center shadow-sm">
+          <span className="mx-auto mb-4 grid size-12 place-items-center rounded-sm bg-secondary text-primary">
+            <QrCode className="size-6" strokeWidth={1.75} />
+          </span>
+          <h1 className="text-xl font-semibold text-foreground">No QR code scanned</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You can still continue into the console.
+          </p>
+          <div className="mt-6 grid gap-2.5 sm:grid-cols-3">
+            <Link href="/search-property" className="flex items-center justify-center gap-2 rounded-sm bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent">
+              <Search className="size-4" strokeWidth={1.75} /> Search
             </Link>
-
-            <Link href="/admin" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
-              <p>Admin</p>
-              <User strokeWidth={1} />
+            <Link href="/admin" className="flex items-center justify-center gap-2 rounded-sm bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent">
+              <User className="size-4" strokeWidth={1.75} /> Admin
             </Link>
-
-            <Link href="/scanner" className='bg-slate-500 text-white px-3 py-1 hover:bg-slate-700 rounded-sm flex gap-1 items-center justify-center transition-all text-center max-sm:w-[80%] max-sm:gap-3'>
-              <p>Scanner</p>
-              <QrCode strokeWidth={1} />
+            <Link href="/scanner" className="flex items-center justify-center gap-2 rounded-sm bg-signal px-3 py-2 text-sm font-semibold text-signal-foreground transition-colors hover:bg-signal/90">
+              <QrCode className="size-4" strokeWidth={1.75} /> Scan
             </Link>
           </div>
-
         </div>
       </div>
-    )
-  } else {
-
-    return (
-      <Suspense fallback={<div>Loading...</div>}>
-        {isValidQrId === false ? (
-          <div className="flex justify-center items-center h-120 px-4">
-            <div className="w-full max-w-md px-6 py-6 bg-white text-red-800 rounded-xl shadow-md text-center flex flex-col items-center gap-5">
-              <h2 className="text-xl sm:text-2xl font-bold">QR ID Missing or Invalid</h2>
-              <p className="text-sm sm:text-base font-medium text-black">
-                No valid QR ID was found in the URL. Please scan a valid QR code or check the link.
-              </p>
-              <button
-                className="inline-flex items-center px-4 py-2 bg-blue-50 text-black border border-blue-500 rounded-lg gap-3 hover:bg-blue-100 transition"
-                onClick={() => window.location.reload()}
-              >
-                <QrCode className="w-5 h-5" />
-                <Link href={"/scanner"} className="text-sm font-medium">Scan again</Link>
-              </button>
-            </div>
-          </div>
-        ) : isValidQrId === null ? (
-          <div className="text-center text-gray-700 py-10">Validating QR ID...</div>
-        ) : (
-          <div className="flex flex-col items-center justify-start max-h-screen w-full overflow-x-hidden scrollbar-hidden">
-            {/* Header with Logo and Title */}
-            <div className="px-3 py-1 flex w-full justify-around shadow-md">
-              <div className="w-[20%] bg-blue-500 flex flex-col items-center rounded-l-lg justify-evenly max-xl:hidden">
-                <Image
-                  src="/CG_POLICE_LOGO.png"
-                  alt="Chhattisgarh Police Logo"
-                  width={216}
-                  height={336}
-                  className="rounded-md object-contain"
-                />
-                <p className="text-3xl font-bold text-white text-center">Chhattisgarh Police</p>
-                <p className="text-white text-lg w-[70%] text-center font-semibold max-xl:text-sm">
-                  E Malkhana Management System
-                </p>
-              </div>
-
-              {/* Main Property Form */}
-              <PropertyForm />
-            </div>
-
-            <Toaster />
-          </div>
-        )}
-      </Suspense>
     );
   }
+
+  if (isValidQrId === false) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-md border border-border bg-card p-8 text-center shadow-sm">
+          <span className="mx-auto mb-4 grid size-12 place-items-center rounded-full border-2 border-danger text-danger">
+            <AlertTriangle className="size-6" />
+          </span>
+          <h2 className="text-xl font-semibold text-foreground">QR ID missing or invalid</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No valid QR code was found in the link. Please scan a valid code.
+          </p>
+          <Link
+            href="/scanner"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-sm bg-signal px-5 py-2.5 font-semibold text-signal-foreground transition-colors hover:bg-signal/90"
+          >
+            <QrCode className="size-4" /> Scan again
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isValidQrId === null) {
+    return (
+      <div className="py-16 text-center text-sm text-muted-foreground">Validating QR ID…</div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <PropertyForm />
+      <Toaster position="top-right" />
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>}>
+      <HomeContent />
+    </Suspense>
+  );
 }

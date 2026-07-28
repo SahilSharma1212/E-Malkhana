@@ -3,8 +3,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
-.text-input{
-    @apply w-100 h-10 text-black rounded-lg px-3 max-md:px-2 border border-gray-400 max-lg:w-64 max-md:text-sm max-xl:text-sm max-sm:text-xs;
+/* ------------------------------------------------------------------ */
+/* Shared field style. Token-driven so every input reads from the      */
+/* design system rather than hardcoded grays.                          */
+/* ------------------------------------------------------------------ */
+@layer components {
+    /* Placed in the components layer so per-element width/height utilities
+       (w-full, w-auto, h-9 …) override these defaults instead of losing to an
+       unlayered rule. */
+    .text-input {
+        @apply w-full h-10 min-w-0 text-foreground rounded-sm px-3 max-md:px-2 border border-input bg-card outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30 max-md:text-sm max-xl:text-sm max-sm:text-xs;
+    }
+}
+
+/* Monospaced treatment for evidence identifiers (PROP-ID / FIR / QR).  */
+/* This is the console's data "signature".                              */
+.mono-id {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
 }
 
 /* This hides scrollbars but keeps scrolling enabled */
@@ -18,9 +35,9 @@
 }
 
 @theme inline {
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
+    --radius-sm: calc(var(--radius) - 1px);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) + 2px);
     --radius-xl: calc(var(--radius) + 4px);
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -36,6 +53,14 @@
     --color-muted-foreground: var(--muted-foreground);
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
+    --color-signal: var(--signal);
+    --color-signal-foreground: var(--signal-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-danger: var(--danger);
+    --color-danger-foreground: var(--danger-foreground);
     --color-destructive: var(--destructive);
     --color-border: var(--border);
     --color-input: var(--input);
@@ -55,73 +80,115 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ------------------------------------------------------------------ */
+/* Command Console palette — Deep navy + steel + amber.                */
+/* Sharp edges (4px radius), cool neutrals, amber reserved as the      */
+/* single signal color for primary actions and alerts.                 */
+/* ------------------------------------------------------------------ */
 :root {
-    --radius: 0.625rem;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.141 0.005 285.823);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.141 0.005 285.823);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.141 0.005 285.823);
-    --primary: oklch(0.21 0.006 285.885);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.967 0.001 286.375);
-    --muted-foreground: oklch(0.552 0.016 285.938);
-    --accent: oklch(0.967 0.001 286.375);
-    --accent-foreground: oklch(0.21 0.006 285.885);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.92 0.004 286.32);
-    --input: oklch(0.92 0.004 286.32);
-    --ring: oklch(0.705 0.015 286.067);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.141 0.005 285.823);
-    --sidebar-primary: oklch(0.21 0.006 285.885);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.967 0.001 286.375);
-    --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-    --sidebar-border: oklch(0.92 0.004 286.32);
-    --sidebar-ring: oklch(0.705 0.015 286.067);
+    --radius: 0.25rem;
+
+    --background: #f4f6fa;          /* cool off-white */
+    --foreground: #10192b;          /* ink */
+
+    --card: #ffffff;
+    --card-foreground: #10192b;
+    --popover: #ffffff;
+    --popover-foreground: #10192b;
+
+    --primary: #0b1f3a;             /* deep navy */
+    --primary-foreground: #f4f6fa;
+
+    --secondary: #e8edf4;           /* light steel */
+    --secondary-foreground: #0b1f3a;
+
+    --muted: #eaeff5;
+    --muted-foreground: #55637a;    /* steel-gray text */
+
+    --accent: #e8edf4;              /* subtle hover surface */
+    --accent-foreground: #0b1f3a;
+
+    --signal: #e8a317;              /* amber — primary actions / alerts */
+    --signal-foreground: #10192b;
+
+    --success: #1e874b;
+    --success-foreground: #ffffff;
+    --warning: #b7791f;
+    --warning-foreground: #ffffff;
+    --danger: #c0392b;
+    --danger-foreground: #ffffff;
+    --destructive: #c0392b;
+
+    --border: #c9d2e0;              /* steel hairline */
+    --input: #c9d2e0;
+    --ring: #e8a317;               /* amber focus ring */
+
+    --chart-1: #0b1f3a;
+    --chart-2: #2e6da6;
+    --chart-3: #e8a317;
+    --chart-4: #1e874b;
+    --chart-5: #7a8ca6;
+
+    --sidebar: #0b1f3a;            /* deep navy console rail */
+    --sidebar-foreground: #c9d2e0;
+    --sidebar-primary: #e8a317;    /* amber active item */
+    --sidebar-primary-foreground: #10192b;
+    --sidebar-accent: #13294b;     /* navy hover */
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #1e3a5f;
+    --sidebar-ring: #e8a317;
 }
 
 .dark {
-    --background: oklch(0.141 0.005 285.823);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.21 0.006 285.885);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.21 0.006 285.885);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.92 0.004 286.32);
-    --primary-foreground: oklch(0.21 0.006 285.885);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.274 0.006 286.033);
-    --muted-foreground: oklch(0.705 0.015 286.067);
-    --accent: oklch(0.274 0.006 286.033);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.552 0.016 285.938);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.21 0.006 285.885);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.274 0.006 286.033);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.552 0.016 285.938);
+    --background: #0a1424;
+    --foreground: #e8edf4;
+
+    --card: #10203a;
+    --card-foreground: #e8edf4;
+    --popover: #10203a;
+    --popover-foreground: #e8edf4;
+
+    --primary: #e8edf4;
+    --primary-foreground: #0b1f3a;
+
+    --secondary: #172c4d;
+    --secondary-foreground: #e8edf4;
+
+    --muted: #172c4d;
+    --muted-foreground: #9aa9c2;
+
+    --accent: #172c4d;
+    --accent-foreground: #e8edf4;
+
+    --signal: #e8a317;
+    --signal-foreground: #10192b;
+
+    --success: #35a869;
+    --success-foreground: #06140b;
+    --warning: #d9a441;
+    --warning-foreground: #1a1204;
+    --danger: #e05a4c;
+    --danger-foreground: #1a0503;
+    --destructive: #e05a4c;
+
+    --border: #24406b;
+    --input: #24406b;
+    --ring: #e8a317;
+
+    --chart-1: #4f83c0;
+    --chart-2: #2e6da6;
+    --chart-3: #e8a317;
+    --chart-4: #35a869;
+    --chart-5: #7a8ca6;
+
+    --sidebar: #06101f;
+    --sidebar-foreground: #c9d2e0;
+    --sidebar-primary: #e8a317;
+    --sidebar-primary-foreground: #10192b;
+    --sidebar-accent: #13294b;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #1e3a5f;
+    --sidebar-ring: #e8a317;
 }
 
 @layer base {
@@ -131,18 +198,4 @@
   body {
     @apply bg-background text-foreground;
     }
-}
-
-/* In your CSS file (e.g., globals.css) */
-.bg-blue-600 {
-  background-color: #2563eb; /* Explicit hex color */
-}
-.text-white {
-  color: #ffffff; /* Explicit hex color */
-}
-.bg-green-600 {
-  background-color: #16a34a; /* Explicit hex color */
-}
-.bg-gray-400 {
-  background-color: #9ca3af; /* Explicit hex color */
 }

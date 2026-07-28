@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import supabase from "@/config/supabaseConnect";
+import supabaseServer from "@/config/supabaseServer";
+import { getAuthedOfficer, unauthorized } from "@/lib/apiAuth";
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+
+    const { data, error } = await supabaseServer
       .from("thana_rack_box_table")
       .select("thana");
 
@@ -14,8 +18,7 @@ export async function GET() {
     const uniqueThanas = [...new Set(data.map((d) => d.thana))];
 
     return NextResponse.json({ success: true, message: "Fetched thanas", thanas: uniqueThanas }, { status: 200 });
-  } catch (err) {
-    console.error("Fetch thanas error:", err);
+  } catch {
     return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
   }
 }

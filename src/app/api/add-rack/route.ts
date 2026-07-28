@@ -1,16 +1,21 @@
 // app/api/add-rack/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import supabase from '@/config/supabaseConnect';
+import supabaseServer from '@/config/supabaseServer';
+import { getAuthedOfficer, isAdmin, unauthorized, forbidden } from '@/lib/apiAuth';
 
 export async function POST(req: NextRequest) {
   try {
-    const { rackInput, policeStation, userName } = await req.json();
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+    if (!isAdmin(officer.role)) return forbidden();
+
+    const { rackInput, policeStation } = await req.json();
 
     if (!rackInput || !policeStation) {
       return NextResponse.json({ error: 'Missing fields.' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('thana_rack_box_table')
       .select('racks')
       .eq('thana', policeStation)
@@ -29,11 +34,11 @@ export async function POST(req: NextRequest) {
 
     const updatedRacks = [...(data.racks || []), normalizedInput];
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseServer
       .from('thana_rack_box_table')
       .update({
         racks: updatedRacks,
-        thana_rack_updated_by: userName,
+        thana_rack_updated_by: officer.email,
         thana_rack_updated_at: new Date().toISOString(),
       })
       .eq('thana', policeStation);
@@ -43,8 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ message: 'Rack added successfully.' });
-  } catch (err) {
-    console.error('API error:', err);
+  } catch {
     return NextResponse.json({ error: 'Unexpected server error.' }, { status: 500 });
   }
 }

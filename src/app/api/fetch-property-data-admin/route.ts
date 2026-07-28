@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import supabase from '@/config/supabaseConnect';
+import supabaseServer from '@/config/supabaseServer';
+import { getAuthedOfficer, isStationScoped, unauthorized } from '@/lib/apiAuth';
 
 export async function GET(req: NextRequest) {
-  const thana = req.nextUrl.searchParams.get("thana");
+  const officer = await getAuthedOfficer();
+  if (!officer) return unauthorized();
+
+  // Station-scoped officers are locked to their own thana regardless of the
+  // requested query param; admins may request any station.
+  const requestedThana = req.nextUrl.searchParams.get("thana");
+  const thana = isStationScoped(officer.role) ? officer.thana : requestedThana;
 
   if (!thana) {
     return NextResponse.json({ success: false, message: "Thana is required" }, { status: 400 });
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('property_table')
       .select('property_id, name_of_io, created_at, date_of_seizure, category_of_offence, type_of_seizure, fir_number, place_of_seizure, rack_number, box_number, serial_number_from_register')
       .eq('police_station', thana)
@@ -25,8 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message: "Data fetched", data }, { status: 200 });
-  } catch (err) {
-    console.error("Fetch property data error:", err);
+  } catch {
     return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
   }
 }

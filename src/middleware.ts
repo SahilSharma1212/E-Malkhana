@@ -7,79 +7,69 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET); // ✅ use .env
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
-  const isLoginPage = (request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname == "/otp-login");
+  const isLoginPage = (request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname === "/otp-login");
   const isHomePage = request.nextUrl.pathname === "/";
-  const fullUrl = request.url; // Get the entire URL
+  const qrId = request.nextUrl.searchParams.get("qrId");
 
-  console.log("🍪 Token from cookie:", token);
-
-  // Step 1 & 3: No token handling
+  // No token: allow the login pages, otherwise send to sign-in.
   if (!token) {
     if (isLoginPage) return NextResponse.next();
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // Step 2: Token exists
+  // Invalid/expired token: clear it so we don't loop, then show sign-in.
+  let payload;
   try {
-    const { payload } = await jwtVerify(token, secret);
-    console.log("🧾 JWT payload after decode:", payload);
-
-    // 🔍 Supabase check — validate email is legit
-    const { data: officer, error } = await supabase
-      .from("officer_table")
-      .select("officer_name, role, thana, email_id")
-      .eq("email_id", payload.email)
-      .single();
-
-    if (!officer || error) {
-      console.error("🚫 Supabase verification failed:", error || "Officer not found");
-      return NextResponse.redirect(new URL("/sign-in", request.url));
-    }
-
-    console.log("✅ Officer verified in DB:", officer);
-
-    // Redirect from sign-in to admin if token exists
-    if (isLoginPage) {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
-
-    // Step 4: Special logic for homepage
-    if (isHomePage) {
-      // Query property_table for qr_id matching the full URL
-      const { data: property, error: propertyError } = await supabase
-        .from("property_table")
-        .select("qr_id, property_id")
-        .eq("qr_id", fullUrl)
-        .single();
-
-      if (propertyError) {
-        console.error("🚫 Property table query failed:", propertyError);
-        // Continue to homepage if query fails (optional: could redirect to error page)
-        return NextResponse.next();
-      }
-
-      if (property) {
-        // Check if property_id exists
-        if (property.property_id) {
-          // Redirect to /search-property/{property_id}
-          return NextResponse.redirect(
-            new URL(`/search-property/${property.property_id}`, request.url)
-          );
-        }
-        // If property_id is empty, stay on homepage
-        return NextResponse.next();
-      }
-      // If no matching qr_id, stay on homepage
-      return NextResponse.next();
-    }
-
-    // Allow access to all other routes
-    return NextResponse.next();
-
-  } catch (err) {
-    console.error("❌ Invalid token. Redirecting to /sign-in.", err);
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    ({ payload } = await jwtVerify(token, secret));
+  } catch {
+    const res = isLoginPage
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL("/sign-in", request.url));
+    res.cookies.delete("token");
+    return res;
   }
+
+  // Validate the officer — case-insensitive to match how the session was minted,
+  // and tolerant of transient DB errors so a blip can't mass-logout everyone.
+  const { data: officer, error } = await supabase
+    .from("officer_table")
+    .select("officer_name, role, thana, email_id")
+    .ilike("email_id", String(payload.email))
+    .maybeSingle();
+
+  // Genuinely not whitelisted (no error, no row): clear the stale cookie and
+  // force sign-in. Clearing the cookie is what breaks the /admin ⇄ /sign-in loop.
+  if (!error && !officer) {
+    const res = isLoginPage
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL("/sign-in", request.url));
+    res.cookies.delete("token");
+    return res;
+  }
+
+  // Valid session sitting on a login page → go to the console.
+  if (isLoginPage) {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
+  // Homepage: resolve a scanned QR to its record when it's already filled.
+  if (isHomePage && qrId) {
+    const { data: property, error: propertyError } = await supabase
+      .from("property_table")
+      .select("qr_id, property_id")
+      .ilike("qr_id", `%qrId=${qrId}`)
+      .maybeSingle();
+
+    if (propertyError) return NextResponse.next();
+    if (property?.property_id) {
+      return NextResponse.redirect(
+        new URL(`/search-property/${property.property_id}`, request.url)
+      );
+    }
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

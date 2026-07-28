@@ -4,10 +4,13 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import supabase from '@/config/supabaseConnect';
 import toast, { Toaster } from 'react-hot-toast';
-import { Ban, Loader2, Logs } from 'lucide-react';
+import { Ban, Loader2, Logs, Boxes, LayoutGrid, QrCode, ShieldAlert, Trash2, UserPlus, KeyRound, Building2 } from 'lucide-react';
 import axios from 'axios';
 import Link from 'next/link';
 import { Document, Page as PDFPage, StyleSheet, View, Image as PDFImage, pdf, Text } from '@react-pdf/renderer';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatTile } from '@/components/ui/stat-tile';
 
 const styles = StyleSheet.create({
   page: {
@@ -47,7 +50,7 @@ const QRCodePDF = ({ qrCodes, heading, thana }: { qrCodes: string[], heading: st
     const chunk = qrCodes.slice(i, i + 6);
     pages.push(
       <PDFPage key={i} size="A4" style={styles.page}>
-        <Text style={styles.heading}>QR ID: ({heading[i]} to {heading[i + 6]}) , Thana:{thana}</Text>
+        <Text style={styles.heading}>QR ID: ({heading[i]} to {heading[i + chunk.length - 1]}) , Thana:{thana}</Text>
 
         <View style={styles.qrGrid}>
           {chunk.map((qr, idx) => (
@@ -104,6 +107,12 @@ export default function Page() {
   const [availableThanas, setAvailableThanas] = useState<string[]>([]);
   const [rackInput, setRackInput] = useState('');
   const [boxInput, setBoxInput] = useState('');
+  const [isAddingRack, setIsAddingRack] = useState(false);
+  const [isAddingBox, setIsAddingBox] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [newThanaName, setNewThanaName] = useState("")
   const [propertyDetails, setPropertyDetails] = useState<
     {
@@ -300,6 +309,7 @@ export default function Page() {
 
   const handleRackGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAddingRack) return;
     const policeStation = user.role === 'thana admin' ? user.thana : selectedThana;
 
     if (!rackInput.trim() || !policeStation) {
@@ -308,6 +318,7 @@ export default function Page() {
     }
 
     try {
+      setIsAddingRack(true);
       const response = await axios.post('/api/add-rack', {
         rackInput,
         policeStation,
@@ -320,11 +331,14 @@ export default function Page() {
     } catch (error) {
       console.error('Rack add error:', error);
       toast.error('Failed to add rack.');
+    } finally {
+      setIsAddingRack(false);
     }
   };
 
   const handleBoxGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAddingBox) return;
     const policeStation = user.role === 'thana admin' ? user.thana : selectedThana;
 
     if (!boxInput.trim() || !policeStation) {
@@ -333,6 +347,7 @@ export default function Page() {
     }
 
     try {
+      setIsAddingBox(true);
       const response = await axios.post('/api/add-box', {
         boxInput,
         policeStation,
@@ -345,6 +360,8 @@ export default function Page() {
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('An unexpected error occurred.');
+    } finally {
+      setIsAddingBox(false);
     }
   };
 
@@ -380,7 +397,7 @@ export default function Page() {
       toast.success('New QRs pushed to database.');
 
       const qrCodes = entries.map((entry) => entry.qr_id);
-      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} thana={user.thana} />).toBlob();
+      const blob = await pdf(<QRCodePDF qrCodes={qrCodes} heading={ids} thana={policeStation} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -401,6 +418,7 @@ export default function Page() {
 
   const handleUserGeneration = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCreatingUser) return;
 
     const { newusername, newuserEmail, newuserRole, newuserPhone, newuserThana } = newUserGeneration;
 
@@ -410,6 +428,7 @@ export default function Page() {
     }
 
     try {
+      setIsCreatingUser(true);
       const response = await axios.post('/api/create-user', {
         newusername,
         newuserEmail,
@@ -431,6 +450,8 @@ export default function Page() {
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('Something went wrong.');
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -566,10 +587,12 @@ export default function Page() {
       toast.error("Cannot Delete Empty ID");
       return;
     }
+    if (isDeleting) return;
 
     const propertyId = propertyIdToBeDeleted.trim().toLowerCase();
 
     try {
+      setIsDeleting(true);
       // Step 1: Check if property exists and fetch file URLs
       const { data: propertyData, error: fetchError } = await supabase
         .from("property_table")
@@ -735,337 +758,329 @@ export default function Page() {
     } catch (error) {
       console.error("Unexpected error in clearPropertyRecords:", error);
       toast.error("An unexpected error occurred while clearing property records");
+    } finally {
+      setIsDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
 
+  const totalWorth = courtSubmitableItems.reduce(
+    (sum, item) => sum + (Number(item.special_category_worth) || 0),
+    0
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6 space-y-8">
-      <Toaster position="top-center" />
+    <div className="space-y-6">
+      <Toaster position="top-right" />
 
-      {/* Admin Profile Section */}
-      <div className="w-full bg-white shadow-md rounded-xl p-6 flex flex-col md:flex-row items-start gap-6">
-        <div className="relative w-28 h-28 md:w-32 md:h-32">
-          <Image
-            src="/e-malkhana.png"
-            alt="Admin Avatar"
-            fill
-            className="rounded-xl object-cover border p-3 border-gray-500"
-          />
+      {/* Page header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Evidence Console
+          </p>
+          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+            <LayoutGrid className="size-6 text-signal" strokeWidth={1.75} />
+            Admin Dashboard
+          </h1>
         </div>
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-700 max-sm:w-full">
-          <div>
-            <p className="font-semibold text-gray-900">Name</p>
-            <p className="break-words">{user.name || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Email</p>
-            <p className="break-words">{user.email || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Role</p>
-            <p className="break-words">{user.role || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Status</p>
-            <p>Active</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Joined</p>
-            <p className="break-words">{user.created_at || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Phone No.</p>
-            <p>{user.phone || 'N/A'}</p>
-          </div>
-        </div>
+        <span className="rounded-sm border border-border bg-card px-3 py-1 text-xs font-medium capitalize text-muted-foreground">
+          {user.role || 'unknown'} · {user.thana || '—'}
+        </span>
       </div>
 
-      {/* Table Section */}
-      <div className="overflow-x-auto mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
-          Seized Property Items: {user.thana || 'N/A'}
-        </h2>
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile label="Station" value={<span className="capitalize">{user.thana || '—'}</span>} />
+        <StatTile label="Seized Items Loaded" value={propertyDetails.length} />
+        <StatTile label="Special-Category Items" value={courtSubmitableItems.length} />
+        <StatTile
+          label="Appx Worth (₹)"
+          value={totalWorth.toLocaleString('en-IN')}
+          accent
+        />
+      </div>
 
-        {!hasLoadedData && (
-          <button
-            className="mb-4 rounded-md font-semibold text-base text-white px-5 py-2 bg-blue-500 hover:bg-blue-700 transition-all cursor-pointer"
-            disabled={isSearchingDetails}
-            onClick={handleViewData}
-          >
-            {isSearchingDetails ? <Loader2 className="animate-spin" /> : "Load details"}
-          </button>
-        )}
+      {/* Officer Profile */}
+      <Card>
+        <CardContent className="flex flex-col items-start gap-6 pt-5 md:flex-row">
+          <div className="relative size-24 shrink-0 md:size-28">
+            <Image
+              src="/e-malkhana.png"
+              alt="Officer avatar"
+              fill
+              className="rounded-md border border-border bg-secondary object-contain p-3"
+            />
+          </div>
+          <div className="grid flex-1 grid-cols-1 gap-4 text-sm sm:grid-cols-2 md:grid-cols-3 max-sm:w-full">
+            {[
+              { label: 'Name', value: user.name, className: 'capitalize' },
+              { label: 'Email', value: user.email },
+              { label: 'Role', value: user.role, className: 'capitalize' },
+              { label: 'Status', value: 'Active' },
+              { label: 'Joined', value: user.created_at },
+              { label: 'Phone No.', value: user.phone },
+            ].map((f) => (
+              <div key={f.label}>
+                <p className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+                  {f.label}
+                </p>
+                <p className={`mt-0.5 break-words text-foreground ${f.className || ''}`}>
+                  {f.value || 'N/A'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-        {ispropertyDetailsFetched ? (
-          ""
-        ) : (
-          <p className="flex items-center justify-center text-center pb-5 text-red-700">
-            ( Try refreshing or logging in again ! )
-          </p>
-        )}
+      {/* Seized Property Items */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-3">
+          <CardTitle className="capitalize">
+            Seized Property Items · {user.thana || 'N/A'}
+          </CardTitle>
+          {!hasLoadedData && (
+            <Button
+              variant="signal"
+              size="sm"
+              disabled={isSearchingDetails}
+              onClick={handleViewData}
+            >
+              {isSearchingDetails ? <Loader2 className="size-4 animate-spin" /> : 'Load details'}
+            </Button>
+          )}
+        </CardHeader>
 
-        {/* full thana data */}
+        <CardContent>
+          {!ispropertyDetailsFetched && (
+            <p className="pb-4 text-center text-sm text-danger">
+              ( Try refreshing or logging in again! )
+            </p>
+          )}
 
-        <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-          <table className="min-w-[1200px] border text-sm text-left text-gray-700">
-            <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
-              <tr>
-                <th className="px-4 py-2 whitespace-nowrap">Property ID</th>
-                <th className="px-4 py-2 whitespace-nowrap">Name of IO</th>
-                <th className="px-4 py-2 whitespace-nowrap">Created At</th>
-                <th className="px-4 py-2 whitespace-nowrap">Date of Seizure</th>
-                <th className="px-4 py-2 whitespace-nowrap">Category</th>
-                <th className="px-4 py-2 whitespace-nowrap">Type</th>
-                <th className="px-4 py-2 whitespace-nowrap">FIR Number</th>
-                <th className="px-4 py-2 whitespace-nowrap">Place</th>
-                <th className="px-4 py-2 whitespace-nowrap">Rack</th>
-                <th className="px-4 py-2 whitespace-nowrap">Box</th>
-                <th className="px-4 py-2 whitespace-nowrap">Serial No.</th>
-                <th className="px-4 py-2 whitespace-nowrap">Logs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {propertyDetails.map((item, index) => (
-                <tr
-                  key={index}
-                  className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                >
-                  <td className="px-4 py-2 whitespace-nowrap">{item.property_id}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.name_of_io}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.date_of_seizure}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.category_of_offence}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.type_of_seizure}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.fir_number}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.place_of_seizure}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.rack_number}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.box_number}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{item.serial_number_from_register}</td>
-                  <td className="px-4 py-2 whitespace-nowrap" title="View Logs">
-                    <Link
-                      href={`/search-property/${item.property_id}`}
-                      className="bg-white text-blue-500 p-1 rounded-sm hover:bg-blue-100 flex items-center gap-1 border border-blue-500"
-                    >
-                      <Logs className="text-blue-500" size={16} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {isSearchingDetails && (
+          <div className="w-full overflow-x-auto scrollbar-hidden rounded-sm border border-border">
+            <table className="min-w-[1200px] border-collapse text-left text-sm text-foreground">
+              <thead className="sticky top-0 z-10 bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <td colSpan={12}>
-                    <div className="py-5 flex items-center justify-center">
-                      <Loader2 className="animate-spin" />
-                    </div>
-                  </td>
+                  {['Property ID', 'Name of IO', 'Created At', 'Date of Seizure', 'Category', 'Type', 'FIR Number', 'Place', 'Rack', 'Box', 'Serial No.', 'Logs'].map((h) => (
+                    <th key={h} className="whitespace-nowrap border-b border-border px-4 py-2.5 font-semibold">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {propertyDetails.map((item, index) => (
+                  <tr key={index} className="border-b border-border transition-colors hover:bg-accent">
+                    <td className="mono-id whitespace-nowrap px-4 py-2 text-xs">{item.property_id}</td>
+                    <td className="whitespace-nowrap px-4 py-2 capitalize">{item.name_of_io}</td>
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums">
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums">{item.date_of_seizure}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.category_of_offence}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.type_of_seizure}</td>
+                    <td className="mono-id whitespace-nowrap px-4 py-2 text-xs">{item.fir_number}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.place_of_seizure}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.rack_number}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.box_number}</td>
+                    <td className="mono-id whitespace-nowrap px-4 py-2 text-xs">{item.serial_number_from_register}</td>
+                    <td className="whitespace-nowrap px-4 py-2" title="View Logs">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/search-property/${item.property_id}`}>
+                          <Logs size={16} />
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {isSearchingDetails && (
+                  <tr>
+                    <td colSpan={12}>
+                      <div className="flex items-center justify-center py-5">
+                        <Loader2 className="size-5 animate-spin text-signal" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!isSearchingDetails && propertyDetails.length === 0 && hasLoadedData && (
+                  <tr>
+                    <td colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
+                      No property items found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
 
-      <div className="mt-6 bg-white shadow-md rounded-xl p-4 flex flex-col items-center max-w-full">
-        <div className='flex py-4 gap-4 flex-wrap items-center justify-center'>
-          <p className='font-semibold text-lg max-sm:text-base text-center'>
-            Thana property worth
-          </p>
-
-          <button
-            className=' text-white px-4 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer max-sm:scale-95'
-            onClick={handleSpecialPropertyDataFetch}
-          >
-            View Details
-          </button>
-
-          {
-            user.role == "super admin" && (
+      {/* Thana property worth */}
+      <Card>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+          <CardTitle>Thana Property Worth</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            {user.role === 'super admin' && (
               <select
-                onChange={(e) => { setSpecialCategoryThana(e.target.value) }}
-                className='px-3 rounded-md border border-emerald-600 text-emerald-600 max-sm:scale-95'
+                onChange={(e) => setSpecialCategoryThana(e.target.value)}
+                className="text-input h-9 w-auto min-w-40"
                 defaultValue={user.thana}
               >
                 <option value={user.thana}>{user.thana}</option>
-                {thanaList.map((item, index) => {
-                  return <div key={index}>
-                    <option value={item.thana}>{item.thana}</option>
-                  </div>
-                })}
+                {thanaList.map((item, index) => (
+                  <option key={index} value={item.thana}>{item.thana}</option>
+                ))}
               </select>
-            )
-          }
-        </div>
+            )}
+            <Button variant="outline" size="sm" onClick={handleSpecialPropertyDataFetch}>
+              View Details
+            </Button>
+          </div>
+        </CardHeader>
 
-        {/* Mobile-responsive table wrapper */}
-        <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-          <table border={1} className='min-w-[800px] w-full border-2 text-sm text-left text-gray-700'>
-            <tbody>
-              <tr className='border-2'>
-                <th colSpan={7} className='text-center px-4 py-2 whitespace-nowrap bg-gray-200 border-2'>
-                  As dated of : {currentDate}
-                </th>
-              </tr>
-
-              <tr>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Property ID:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Description:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Case Status:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Updated:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Category Type:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Appx Worth:</th>
-                <th className='px-4 py-2 whitespace-nowrap bg-gray-200'>Logs:</th>
-              </tr>
-
-              {courtSubmitableItems.map((item, index) => {
-                return <tr key={index} className='border-2'>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.property_id}</td>
-                  <td className='px-2 py-2 text-xs sm:text-sm'>{item.description}</td>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.case_status}</td>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.updation_date}</td>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_type}</td>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>{item.special_category_worth}</td>
-                  <td className='px-2 py-2 whitespace-nowrap text-xs sm:text-sm'>
-                    <a href={`/search-property/${item.property_id}`}>
-                    <Logs size={30} className='text-blue-800 border border-blue-500 rounded-sm p-1 hover:bg-blue-100 cursor-pointer' />
-                    </a>
+        <CardContent>
+          <p className="mb-3 text-xs text-muted-foreground">As dated of: {currentDate}</p>
+          <div className="w-full overflow-x-auto scrollbar-hidden rounded-sm border border-border">
+            <table className="min-w-[800px] w-full border-collapse text-left text-sm text-foreground">
+              <thead className="bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  {['Property ID', 'Description', 'Case Status', 'Updated', 'Category Type', 'Appx Worth', 'Logs'].map((h) => (
+                    <th key={h} className="whitespace-nowrap border-b border-border px-4 py-2.5 font-semibold">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {courtSubmitableItems.map((item, index) => (
+                  <tr key={index} className="border-b border-border transition-colors hover:bg-accent">
+                    <td className="mono-id whitespace-nowrap px-4 py-2 text-xs">{item.property_id}</td>
+                    <td className="px-4 py-2">{item.description}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.case_status}</td>
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums">{item.updation_date}</td>
+                    <td className="whitespace-nowrap px-4 py-2">{item.special_category_type}</td>
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums">
+                      {(Number(item.special_category_worth) || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/search-property/${item.property_id}`}>
+                          <Logs size={16} />
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-secondary/60 font-semibold">
+                  <td colSpan={5} className="px-4 py-2.5">Total Appx Worth (₹)</td>
+                  <td colSpan={2} className="px-4 py-2.5 tabular-nums">
+                    {totalWorth.toLocaleString('en-IN')}
                   </td>
                 </tr>
-              })}
-
-              <tr className='border-2 py-2'>
-                <td colSpan={5} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>Total Appx Worth</td>
-                <td colSpan={2} className='px-2 py-2 bg-gray-50 font-bold text-xs sm:text-sm'>
-                  {courtSubmitableItems.reduce((sum, item) => sum + item.special_category_worth, 0)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-
-      <style jsx>{`
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: #9ca3af #f3f4f6;
-  }
-  .scrollbar-thin::-webkit-scrollbar {
-    height: 6px; /* Reduced height for mobile */
-  }
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: #f3f4f6;
-    border-radius: 4px;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #9ca3af;
-    border-radius: 4px;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
-  
-  /* Better mobile table handling */
-  @media (max-width: 640px) {
-    .scrollbar-thin {
-      -webkit-overflow-scrolling: touch;
-    }
-  }
-  
-  table {
-    -webkit-overflow-scrolling: touch;
-  }
-`}</style>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {['admin', 'thana admin', 'super admin'].includes(user.role) ? (
         <>
           {/* Forms Section */}
           <div className="w-full flex flex-col md:flex-row gap-6 flex-wrap">
             {/* Create New User */}
-            <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800">Create New User</h2>
-              <form className="space-y-3" onSubmit={handleUserGeneration}>
-                <input
-                  type="text"
-                  placeholder="Username"
-                  value={newUserGeneration.newusername}
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  onChange={(e) =>
-                    setNewUserGeneration({ ...newUserGeneration, newusername: e.target.value })
-                  }
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newUserGeneration.newuserEmail}
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  onChange={(e) =>
-                    setNewUserGeneration({ ...newUserGeneration, newuserEmail: e.target.value })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="Phone no."
-                  value={newUserGeneration.newuserPhone}
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  onChange={(e) =>
-                    setNewUserGeneration({ ...newUserGeneration, newuserPhone: e.target.value })
-                  }
-                />
-                {user.role === 'admin' || user.role === 'super admin' ? (
-                  <select
-                    className="w-full px-4 py-2 border rounded-md border-gray-300"
-                    value={newUserGeneration.newuserThana}
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="size-4 text-signal" /> Create New User
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-3" onSubmit={handleUserGeneration}>
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={newUserGeneration.newusername}
+                    className="text-input w-full"
                     onChange={(e) =>
-                      setNewUserGeneration({ ...newUserGeneration, newuserThana: e.target.value })
+                      setNewUserGeneration({ ...newUserGeneration, newusername: e.target.value })
+                    }
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newUserGeneration.newuserEmail}
+                    className="text-input w-full"
+                    onChange={(e) =>
+                      setNewUserGeneration({ ...newUserGeneration, newuserEmail: e.target.value })
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone no."
+                    value={newUserGeneration.newuserPhone}
+                    className="text-input w-full"
+                    onChange={(e) =>
+                      setNewUserGeneration({ ...newUserGeneration, newuserPhone: e.target.value })
+                    }
+                  />
+                  {user.role === 'admin' || user.role === 'super admin' ? (
+                    <select
+                      className="text-input w-full"
+                      value={newUserGeneration.newuserThana}
+                      onChange={(e) =>
+                        setNewUserGeneration({ ...newUserGeneration, newuserThana: e.target.value })
+                      }
+                    >
+                      <option value="">Select Police Station</option>
+                      {availableThanas.map((thana) => (
+                        <option key={thana} value={thana}>
+                          {thana}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-sm border border-input bg-secondary px-3 py-2 text-sm capitalize text-muted-foreground">
+                      {user.thana}
+                    </div>
+                  )}
+                  <select
+                    className="text-input w-full"
+                    value={newUserGeneration.newuserRole}
+                    onChange={(e) =>
+                      setNewUserGeneration({ ...newUserGeneration, newuserRole: e.target.value })
                     }
                   >
-                    <option value="">Select Police Station</option>
-                    {availableThanas.map((thana) => (
-                      <option key={thana} value={thana}>
-                        {thana}
-                      </option>
-                    ))}
+                    <option value="viewer">Viewer</option>
+                    {(user.role === 'admin' || user.role === 'super admin') && (
+                      <option value="thana admin">Thana Admin</option>
+                    )}
+                    {user.role === 'super admin' && (
+                      <>
+                        <option value="admin">Admin</option>
+                        <option value="super admin">Super Admin</option>
+                      </>
+                    )}
                   </select>
-                ) : (
-                  <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
-                    {user.thana}
-                  </div>
-                )}
-                <select
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  value={newUserGeneration.newuserRole}
-                  onChange={(e) =>
-                    setNewUserGeneration({ ...newUserGeneration, newuserRole: e.target.value })
-                  }
-                >
-                  <option value="viewer">Viewer</option>
-                  {(user.role === 'admin' || user.role === 'super admin') && (
-                    <option value="thana admin">Thana Admin</option>
-                  )}
-                  {user.role === 'super admin' && (
-                    <>
-                      <option value="admin">Admin</option>
-                      <option value="super admin">Super Admin</option>
-                    </>
-                  )}
-                </select>
-                <button
-                  type="submit"
-                  className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition-all"
-                >
-                  Create User
-                </button>
-              </form>
-            </div>
+                  <Button type="submit" variant="signal" className="w-full" disabled={isCreatingUser}>
+                    {isCreatingUser ? <Loader2 className="size-4 animate-spin" /> : 'Create User'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
             {/* Change User Access */}
             {(user.role === 'admin' || user.role === 'super admin') ? (
-              <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Change User Access</h2>
+              <Card className="flex-1">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="size-4 text-signal" /> Change User Access
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                 <form
                   className="space-y-3"
                   onSubmit={async (e) => {
@@ -1084,19 +1099,27 @@ export default function Page() {
                       return;
                     }
 
-                    try {
-                      const { data: existing, error: fetchError } = await supabase
-                        .from('officer_table')
-                        .select('*')
-                        .or(`email_id.eq.${accessUpdate.identifier},phone.eq.${accessUpdate.identifier}`);
+                    if (isUpdatingAccess) return;
 
-                      if (fetchError) {
-                        console.error('Fetch error:', fetchError.message);
+                    try {
+                      setIsUpdatingAccess(true);
+                      // Parameterized lookups (email OR phone) so user input
+                      // can't break out of a string-built PostgREST filter.
+                      const identifier = accessUpdate.identifier.trim();
+                      const [emailRes, phoneRes] = await Promise.all([
+                        supabase.from('officer_table').select('*').eq('email_id', identifier),
+                        supabase.from('officer_table').select('*').eq('phone', identifier),
+                      ]);
+
+                      if (emailRes.error || phoneRes.error) {
+                        console.error('Fetch error:', emailRes.error?.message || phoneRes.error?.message);
                         toast.error('Could not find user.');
                         return;
                       }
 
-                      if (!existing || existing.length === 0) {
+                      const existing = [...(emailRes.data || []), ...(phoneRes.data || [])];
+
+                      if (existing.length === 0) {
                         toast.error('No user found with that email or phone.');
                         return;
                       }
@@ -1118,6 +1141,8 @@ export default function Page() {
                     } catch (err) {
                       console.error('Unexpected error:', err);
                       toast.error('Something went wrong.');
+                    } finally {
+                      setIsUpdatingAccess(false);
                     }
                   }}
                 >
@@ -1128,14 +1153,14 @@ export default function Page() {
                     onChange={(e) =>
                       setAccessUpdate({ ...accessUpdate, identifier: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    className="text-input w-full"
                   />
                   <select
                     value={accessUpdate.newRole}
                     onChange={(e) =>
                       setAccessUpdate({ ...accessUpdate, newRole: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-md border-gray-300"
+                    className="text-input w-full"
                   >
                     <option value="">Select New Role</option>
                     <option value="viewer">Viewer</option>
@@ -1149,319 +1174,374 @@ export default function Page() {
                       </>
                     )}
                   </select>
-                  <button
-                    type="submit"
-                    className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-all"
-                  >
-                    Update Access
-                  </button>
+                  <Button type="submit" variant="signal" className="w-full" disabled={isUpdatingAccess}>
+                    {isUpdatingAccess ? <Loader2 className="size-4 animate-spin" /> : 'Update Access'}
+                  </Button>
                 </form>
-              </div>
+                </CardContent>
+              </Card>
             ) : (
-              <div className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4 flex flex-col items-center justify-center">
-                <Ban size={100} className="text-gray-500" />
-                <p className="text-center text-base">
-                  Can&apos;t change access as a Thana Admin, but you can create a viewer.
-                </p>
-              </div>
+              <Card className="flex-1">
+                <CardContent className="flex flex-col items-center justify-center gap-3 py-8">
+                  <Ban size={72} className="text-muted-foreground" />
+                  <p className="text-center text-sm text-muted-foreground">
+                    Can&apos;t change access as a Thana Admin, but you can create a viewer.
+                  </p>
+                </CardContent>
+              </Card>
             )}
 
             {/* Generate QR IDs */}
-            <div className="flex-1 w-full bg-white shadow-md rounded-xl p-6 space-y-4 flex-col items-center">
-              <h2 className="text-xl font-semibold text-gray-800">Generate QR IDs</h2>
-              {qrLoading ? (
-                <div className='flex items-center justify-center p-3'>
-                  <div className='flex py-3 flex-col gap-3 justify-center items-center bg-red-50 rounded-md pt-2'>
-                    <p className='text-base font-medium text-center'>Please wait while we process QR generation</p>
-                    <Loader2 className="text-xl animate-spin text-gray-700" />
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="size-4 text-signal" /> Generate QR IDs
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {qrLoading ? (
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-sm border border-border bg-secondary/60 py-6">
+                    <p className="text-center text-sm font-medium text-muted-foreground">
+                      Please wait while we generate a fresh QR batch…
+                    </p>
+                    <Loader2 className="size-5 animate-spin text-signal" />
                   </div>
-                </div>
-              ) : (
-                <form className="space-y-4" onSubmit={handleQRGeneration}>
-                  <div className="flex flex-col">
-                    <label htmlFor="thana" className="text-sm text-gray-600 mb-1">
-                      Select Police Thana
-                    </label>
-                    {user.role === 'admin' || user.role === 'super admin' ? (
-                      <select
-                        value={selectedThana}
-                        onChange={(e) => setSelectedThana(e.target.value)}
-                        className="border border-gray-300 rounded p-2 w-full"
-                      >
-                        <option value="">Select Police Station</option>
-                        {availableThanas.map((thana) => (
-                          <option key={thana} value={thana}>
-                            {thana}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
-                        {user.thana}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-green-500 text-white py-2 rounded-md font-medium hover:bg-green-700 transition-all duration-200"
-                  >
-                    Generate QR IDs
-                  </button>
-                </form>
-              )}
-            </div>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleQRGeneration}>
+                    <div className="flex flex-col">
+                      <label htmlFor="thana" className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Select Police Thana
+                      </label>
+                      {user.role === 'admin' || user.role === 'super admin' ? (
+                        <select
+                          value={selectedThana}
+                          onChange={(e) => setSelectedThana(e.target.value)}
+                          className="text-input w-full"
+                        >
+                          <option value="">Select Police Station</option>
+                          {availableThanas.map((thana) => (
+                            <option key={thana} value={thana}>
+                              {thana}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="rounded-sm border border-input bg-secondary px-3 py-2 text-sm capitalize text-muted-foreground">
+                          {user.thana}
+                        </div>
+                      )}
+                    </div>
+                    <Button type="submit" variant="signal" className="w-full">
+                      Generate QR IDs
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Rack and Box Forms */}
           <div className="flex gap-6 max-sm:flex-col">
-            <form onSubmit={handleRackGeneration} className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800 text-center">Add a Rack</h2>
-              {user.role === 'admin' || user.role === 'super admin' ? (
-                <select
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  value={selectedThana}
-                  onChange={(e) => setSelectedThana(e.target.value)}
-                >
-                  <option value="">Select Police Station</option>
-                  {availableThanas.map((thana) => (
-                    <option key={thana} value={thana}>
-                      {thana}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
-                  {user.thana}
-                </div>
-              )}
-              <input
-                type="text"
-                placeholder="Rack Name"
-                className="w-full px-4 py-2 border rounded-md border-gray-300"
-                value={rackInput}
-                onChange={(e) => setRackInput(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-700 transition-all"
-              >
-                Add Rack
-              </button>
-            </form>
+            <Card className="flex-1">
+              <form onSubmit={handleRackGeneration}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Boxes className="size-4 text-signal" /> Add a Rack
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {user.role === 'admin' || user.role === 'super admin' ? (
+                    <select
+                      className="text-input w-full"
+                      value={selectedThana}
+                      onChange={(e) => setSelectedThana(e.target.value)}
+                    >
+                      <option value="">Select Police Station</option>
+                      {availableThanas.map((thana) => (
+                        <option key={thana} value={thana}>
+                          {thana}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-sm border border-input bg-secondary px-3 py-2 text-sm capitalize text-muted-foreground">
+                      {user.thana}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Rack Name"
+                    className="text-input w-full"
+                    value={rackInput}
+                    onChange={(e) => setRackInput(e.target.value)}
+                  />
+                  <Button type="submit" variant="signal" className="w-full" disabled={isAddingRack}>
+                    {isAddingRack ? <Loader2 className="size-4 animate-spin" /> : 'Add Rack'}
+                  </Button>
+                </CardContent>
+              </form>
+            </Card>
 
-            <form onSubmit={handleBoxGeneration} className="flex-1 bg-white shadow-md rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800 text-center">Add a Box</h2>
-              {user.role === 'admin' || user.role === 'super admin' ? (
-                <select
-                  className="w-full px-4 py-2 border rounded-md border-gray-300"
-                  value={selectedThana}
-                  onChange={(e) => setSelectedThana(e.target.value)}
-                >
-                  <option value="">Select Police Station</option>
-                  {availableThanas.map((thana) => (
-                    <option key={thana} value={thana}>
-                      {thana}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-700">
-                  {user.thana}
-                </div>
-              )}
-              <input
-                type="text"
-                placeholder="Box Name"
-                className="w-full px-4 py-2 border rounded-md border-gray-300"
-                value={boxInput}
-                onChange={(e) => setBoxInput(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition-all"
-              >
-                Add Box
-              </button>
-            </form>
+            <Card className="flex-1">
+              <form onSubmit={handleBoxGeneration}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Boxes className="size-4 text-signal" /> Add a Box
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {user.role === 'admin' || user.role === 'super admin' ? (
+                    <select
+                      className="text-input w-full"
+                      value={selectedThana}
+                      onChange={(e) => setSelectedThana(e.target.value)}
+                    >
+                      <option value="">Select Police Station</option>
+                      {availableThanas.map((thana) => (
+                        <option key={thana} value={thana}>
+                          {thana}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-sm border border-input bg-secondary px-3 py-2 text-sm capitalize text-muted-foreground">
+                      {user.thana}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Box Name"
+                    className="text-input w-full"
+                    value={boxInput}
+                    onChange={(e) => setBoxInput(e.target.value)}
+                  />
+                  <Button type="submit" variant="signal" className="w-full" disabled={isAddingBox}>
+                    {isAddingBox ? <Loader2 className="size-4 animate-spin" /> : 'Add Box'}
+                  </Button>
+                </CardContent>
+              </form>
+            </Card>
           </div>
         </>
       ) : (
-        <div className="py-10 flex flex-col items-center gap-4">
-          <p className="text-red-700 font-semibold text-2xl text-center">
-            Data manipulation features denied
-          </p>
-          <p className="text-center">
-            We limit certain features only to admins. You can only see your details here.
-          </p>
-          <span className="px-3 py-1 rounded-sm bg-gray-300 text-center max-sm:scale-90">
-            Your role: {user.role}
-          </span>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10">
+            <ShieldAlert className="size-10 text-muted-foreground" />
+            <p className="text-center text-xl font-semibold text-foreground">
+              Data manipulation features denied
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              We limit certain features only to admins. You can only see your details here.
+            </p>
+            <span className="rounded-sm border border-border bg-secondary px-3 py-1 text-sm capitalize text-muted-foreground">
+              Your role: {user.role}
+            </span>
+          </CardContent>
+        </Card>
       )}
 
 
 
       {user.role === 'super admin' && (
         <>
-          <p className="text-center px-5 text-2xl font-semibold text-gray-600">Super Admin Access</p>
-
-          <div className="flex gap-6 items-start justify-start p-4 max-lg:flex-wrap min-h-100 max-md:flex-col max-md:w-full">
-
-            {/* Section 1: Change Thana Name */}
-            <div className="bg-white p-6 rounded-xl w-full max-lg:w-[48%] max-w-md shadow h-full  max-md:w-full">
-              <p className="text-lg font-semibold mb-4 text-center">Change Thana name</p>
-              <label className="block mb-1">Select Thana to change</label>
-
-              <select
-                className="w-full px-4 py-2 border rounded-md border-gray-300 mb-3"
-                value={selectedThana}
-                onChange={(e) => setSelectedThana(e.target.value)}
-              >
-                <option value="">Select Police Station</option>
-                {availableThanas.map((thana) => (
-                  <option key={thana} value={thana}>
-                    {thana}
-                  </option>
-                ))}
-              </select>
-              <label className='block mb-1'>Enter new name</label>
-              <input
-                type="text"
-                className="w-full border px-3 py-2 rounded mb-3" placeholder="Enter Thana Name"
-                onChange={(e) => setNewThanaName(e.target.value)}
-              />
-              <button
-                disabled={isSubmitingThanaNameChange}
-                className="bg-blue-500 text-white w-full py-2 rounded hover:bg-blue-700 flex justify-center items-center"
-                onClick={handleThanaNameChange}
-              >{isSubmitingThanaNameChange ? <Loader2 className='animate-spin' /> : "Update"}</button>
-
-            </div>
-
-            {/* Section 2: Create New Thana */}
-            <div className="bg-white p-6 rounded-xl w-full max-w-md max-lg:w-[48%] shadow  max-md:w-full">
-              <p className="text-lg font-semibold mb-4 text-center">Create New Thana with Details</p>
-              <label className="block mb-1">Thana Name</label>
-              <input
-                type="text"
-                className="w-full border px-3 py-2 rounded mb-3"
-                value={newThanaCreateObj.name}
-                placeholder="Name"
-                onChange={(e) => {
-                  setNewThanaCreateObj({
-                    ...newThanaCreateObj,
-                    name: e.target.value
-                  });
-                }}
-              />
-
-              <label className="block mb-1">District</label>
-              <input
-                type="text"
-                className="w-full border px-3 py-2 rounded mb-3"
-                value={newThanaCreateObj.district}
-                placeholder="District"
-                onChange={(e) => {
-                  setNewThanaCreateObj({
-                    ...newThanaCreateObj,
-                    district: e.target.value
-                  });
-                }}
-              />
-              <label className="block mb-1">PIN Code</label>
-              <input type="text"
-                className="w-full border px-3 py-2 rounded mb-3"
-                value={newThanaCreateObj.pincode}
-                placeholder="PIN Code"
-                onChange={(e) => {
-                  setNewThanaCreateObj({
-                    ...newThanaCreateObj,
-                    pincode: e.target.value
-                  });
-                }}
-              />
-
-              <button
-                disabled={isSubmittingNewThana}
-                className="bg-green-500 text-white w-full py-2 rounded hover:bg-green-700 flex items-center justify-center"
-                onClick={handleNewThanaCreation}
-              >{isSubmittingNewThana ? <Loader2 className='animate-spin' /> : "Create Thana"}</button>
-            </div>
-
-            {/* Section 3: Change User Info */}
-            <div className="bg-white p-6 rounded-xl w-full max-w-md shadow  max-md:w-full max-lg:w-[48%]">
-              <p className="text-lg font-semibold mb-4 text-center">Change User Contact Info</p>
-              <label className="block mb-1">Choose credentials to update</label>
-              <select
-                className="w-full border px-3 py-2 rounded mb-3"
-                onChange={(e) => setNewCredentialValueStyle(e.target.value)}
-              >
-                <option value="">Select</option>
-                <option value="email_id">Email Id</option>
-                <option value="phone">Phone</option>
-              </select>
-              <label className="block mb-1">Existing Value</label>
-              <input
-                type="tel"
-                className="w-full border px-3 py-2 rounded mb-3"
-                placeholder="Value"
-                value={existingCredentialValue}
-                onChange={(e) => setExistingCredentialValue(e.target.value)}
-              />
-
-
-              <label className="block mb-1">Enter new value</label>
-              <input
-                type="tel"
-                className="w-full border px-3 py-2 rounded mb-3"
-                placeholder="Value"
-                value={newCredentialValue}
-                onChange={(e) => setNewCredentialValue(e.target.value)}
-              />
-              <button
-                disabled={isCredentialsUpdating}
-                className="bg-yellow-600 text-white w-full py-2 rounded hover:bg-yellow-700 flex items-center justify-center"
-                onClick={handleNewCredentialChange}
-              >{isCredentialsUpdating ? <Loader2 className='animate-spin' /> : "Update Info"}</button>
-            </div>
-
-
+          <div className="flex items-center gap-3 pt-2">
+            <span className="h-px flex-1 bg-border" />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Super Admin Access
+            </p>
+            <span className="h-px flex-1 bg-border" />
           </div>
 
-        </>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Section 1: Change Thana Name */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="size-4 text-signal" /> Change Thana Name
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Thana to change</label>
+                <select
+                  className="text-input w-full"
+                  value={selectedThana}
+                  onChange={(e) => setSelectedThana(e.target.value)}
+                >
+                  <option value="">Select Police Station</option>
+                  {availableThanas.map((thana) => (
+                    <option key={thana} value={thana}>
+                      {thana}
+                    </option>
+                  ))}
+                </select>
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Enter new name</label>
+                <input
+                  type="text"
+                  className="text-input w-full"
+                  placeholder="Enter Thana Name"
+                  onChange={(e) => setNewThanaName(e.target.value)}
+                />
+                <Button
+                  variant="signal"
+                  className="w-full"
+                  disabled={isSubmitingThanaNameChange}
+                  onClick={handleThanaNameChange}
+                >
+                  {isSubmitingThanaNameChange ? <Loader2 className="size-4 animate-spin" /> : 'Update'}
+                </Button>
+              </CardContent>
+            </Card>
 
+            {/* Section 2: Create New Thana */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="size-4 text-signal" /> Create New Thana
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Thana Name</label>
+                <input
+                  type="text"
+                  className="text-input w-full"
+                  value={newThanaCreateObj.name}
+                  placeholder="Name"
+                  onChange={(e) => setNewThanaCreateObj({ ...newThanaCreateObj, name: e.target.value })}
+                />
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">District</label>
+                <input
+                  type="text"
+                  className="text-input w-full"
+                  value={newThanaCreateObj.district}
+                  placeholder="District"
+                  onChange={(e) => setNewThanaCreateObj({ ...newThanaCreateObj, district: e.target.value })}
+                />
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">PIN Code</label>
+                <input
+                  type="text"
+                  className="text-input w-full"
+                  value={newThanaCreateObj.pincode}
+                  placeholder="PIN Code"
+                  onChange={(e) => setNewThanaCreateObj({ ...newThanaCreateObj, pincode: e.target.value })}
+                />
+                <Button
+                  variant="signal"
+                  className="w-full"
+                  disabled={isSubmittingNewThana}
+                  onClick={handleNewThanaCreation}
+                >
+                  {isSubmittingNewThana ? <Loader2 className="size-4 animate-spin" /> : 'Create Thana'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Section 3: Change User Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="size-4 text-signal" /> Change User Contact Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Choose credentials to update</label>
+                <select
+                  className="text-input w-full"
+                  onChange={(e) => setNewCredentialValueStyle(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  <option value="email_id">Email Id</option>
+                  <option value="phone">Phone</option>
+                </select>
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Existing Value</label>
+                <input
+                  type="tel"
+                  className="text-input w-full"
+                  placeholder="Value"
+                  value={existingCredentialValue}
+                  onChange={(e) => setExistingCredentialValue(e.target.value)}
+                />
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">Enter new value</label>
+                <input
+                  type="tel"
+                  className="text-input w-full"
+                  placeholder="Value"
+                  value={newCredentialValue}
+                  onChange={(e) => setNewCredentialValue(e.target.value)}
+                />
+                <Button
+                  variant="signal"
+                  className="w-full"
+                  disabled={isCredentialsUpdating}
+                  onClick={handleNewCredentialChange}
+                >
+                  {isCredentialsUpdating ? <Loader2 className="size-4 animate-spin" /> : 'Update Info'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
 
       {(user.role == "admin" || user.role == "super admin") && (
-
-        < div className='flex items-center flex-col gap-4 w-full'>
-          <p className='text-center px-5 text-2xl font-semibold text-gray-600'>Direct Deletion Access</p>
-          <div className='flex items-start justify-evenly'>
-
+        <>
+          <div className="flex items-center gap-3 pt-2">
+            <span className="h-px flex-1 bg-border" />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-danger">
+              Direct Deletion Access
+            </p>
+            <span className="h-px flex-1 bg-border" />
           </div>
-          <div className='bg-white p-6 rounded-xl max-w-md shadow max-sm:w-full  w-full'>
-            <p className="text-lg font-semibold mb-4 text-center">Detele Property Records</p>
-            <label className="block mb-1">Property Id to be <span className='text-red-500'>deleted</span></label>
 
-            <input
-              type="tel"
-              className="w-full border px-3 py-2 rounded mb-3"
-              placeholder="Property ID"
-              value={propertyIdToBeDeleted}
-              onChange={(e) => setPropertyIdToBeDeleted(e.target.value)}
-            />
-
-
-
-            <button
-              className="bg-red-600 text-white w-full py-2 rounded hover:bg-red-700 flex items-center justify-center"
-              onClick={clearPropertyRecords}
-            >Delete Records</button>
-          </div>
-        </div>
-      )
-      }
-
-    </div >
+          <Card className="mx-auto w-full max-w-md border-danger/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="size-4 text-danger" /> Delete Property Records
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Property ID to be <span className="text-danger">deleted</span>
+              </label>
+              <input
+                type="tel"
+                className="text-input w-full"
+                placeholder="Property ID"
+                value={propertyIdToBeDeleted}
+                onChange={(e) => setPropertyIdToBeDeleted(e.target.value)}
+              />
+              <Button
+                variant="destructive"
+                className="w-full"
+                disabled={isDeleting}
+                onClick={() => {
+                  if (isDeleting) return;
+                  if (!confirmDelete) {
+                    if (!propertyIdToBeDeleted.trim()) {
+                      toast.error("Cannot Delete Empty ID");
+                      return;
+                    }
+                    setConfirmDelete(true);
+                    setTimeout(() => setConfirmDelete(false), 4000);
+                    return;
+                  }
+                  clearPropertyRecords();
+                }}
+              >
+                {isDeleting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : confirmDelete ? (
+                  'Click again to permanently delete'
+                ) : (
+                  'Delete Records'
+                )}
+              </Button>
+              {confirmDelete && !isDeleting && (
+                <p className="text-xs text-danger">This permanently clears the record, its files and all custody logs.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
   );
 }

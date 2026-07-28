@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import LayoutFrame from "@/components/LayoutFrame";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "E Malkhana",
+  title: "E-Malkhana · Evidence Console",
   description:
-    "Digitally manage police case properties with the eMalkhana Management System. Upload FIR data, search evidence records, update status, and streamline property custody tracking with a modern responsive interface.",
+    "Digitally manage police case properties with the eMalkhana Management System. Upload FIR data, search evidence records, update status, and streamline property custody tracking.",
 };
 
 export default function RootLayout({
@@ -26,22 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-
     <html lang="en">
-
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#e6f0ff] min-h-screen overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen overflow-x-hidden`}
       >
         <Suspense>
-        {/* ✅ Navbar */}
-        <Navbar />
-
-        {/* Page Content */}
-        <main>{children}</main>
-
-      </Suspense>
-    </body>
-        
-      </html >
+          <LayoutFrame>{children}</LayoutFrame>
+        </Suspense>
+      </body>
+    </html>
   );
 }

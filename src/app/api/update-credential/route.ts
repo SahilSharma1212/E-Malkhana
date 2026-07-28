@@ -1,19 +1,24 @@
 // app/api/update-credential/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import supabase from "@/config/supabaseConnect";
+import supabaseServer from "@/config/supabaseServer";
+import { getAuthedOfficer, isSuperAdmin, unauthorized, forbidden } from "@/lib/apiAuth";
 
 type CredentialField = "phone" | "email_id";
 
 export async function POST(req: NextRequest) {
   try {
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+    if (!isSuperAdmin(officer.role)) return forbidden();
+
     const body = await req.json();
 
     const {
       existingCredentialValue,
       newCredentialValue,
       newCredentialValueStyle,
-      updatedBy,
     } = body;
+    const updatedBy = officer.email;
 
     // ✅ Only allow specific fields
     if (!["phone", "email_id"].includes(newCredentialValueStyle)) {
@@ -26,7 +31,7 @@ export async function POST(req: NextRequest) {
     const key = newCredentialValueStyle as CredentialField;
 
     // 🔍 Check if original credential exists
-    const { data: targetRows, error: findError } = await supabase
+    const { data: targetRows, error: findError } = await supabaseServer
       .from("officer_table")
       .select("*")
       .eq(key, existingCredentialValue.trim().toLowerCase());
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
     const targetOfficer = targetRows[0];
 
     // 🔁 Check if new value is already used by someone else
-    const { data: conflictRows, error: conflictError } = await supabase
+    const { data: conflictRows, error: conflictError } = await supabaseServer
       .from("officer_table")
       .select("*")
       .eq(key, newCredentialValue.trim().toLowerCase());
@@ -75,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ Perform update
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseServer
       .from("officer_table")
       .update({
         [key]: newCredentialValue.trim().toLowerCase(),

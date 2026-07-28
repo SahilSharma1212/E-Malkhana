@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import supabase from "@/config/supabaseConnect";
+import supabaseServer from "@/config/supabaseServer";
+import { getAuthedOfficer, isSuperAdmin, unauthorized, forbidden } from "@/lib/apiAuth";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, district, pincode, userName } = body;
+    const officer = await getAuthedOfficer();
+    if (!officer) return unauthorized();
+    if (!isSuperAdmin(officer.role)) return forbidden();
 
-    if (!name || !district || !pincode || !userName) {
+    const body = await req.json();
+    const { name, district, pincode } = body;
+    const userName = officer.email;
+
+    if (!name || !district || !pincode) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
         { status: 400 }
@@ -18,7 +24,7 @@ export async function POST(req: Request) {
     const lowerPincode = pincode.trim().toLowerCase();
 
     // 🔍 Step 1: Check if the thana already exists (case-insensitive)
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing, error: checkError } = await supabaseServer
       .from("thana_rack_box_table")
       .select("thana")
       .eq("thana", lowerThana)
@@ -39,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     // ✅ Step 2: Insert new thana
-    const { error } = await supabase.from("thana_rack_box_table").insert({
+    const { error } = await supabaseServer.from("thana_rack_box_table").insert({
       thana: lowerThana,
       racks: [],
       boxes: [],
